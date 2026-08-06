@@ -180,7 +180,16 @@ function renderSidebar() {
   for (const gname of groupNames) {
     const group = document.createElement("div");
     group.className = "sidebar-group";
-    group.innerHTML = `<div class="sidebar-group-title">${escapeHtml(gname)}</div>`;
+    const titleEl = document.createElement("div");
+    titleEl.className = "sidebar-group-title";
+    titleEl.tabIndex = 0;
+    titleEl.innerHTML = `<span class="sidebar-arrow">▾</span>${escapeHtml(gname)}`;
+    const itemsWrap = document.createElement("div");
+    itemsWrap.className = "sidebar-group-items";
+    titleEl.addEventListener("click", () => toggleGroup(titleEl, itemsWrap));
+    titleEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleGroup(titleEl, itemsWrap); } });
+    group.appendChild(titleEl);
+    group.appendChild(itemsWrap);
     for (const a of groups[gname]) {
       const item = document.createElement("a");
       item.className = "sidebar-item";
@@ -188,10 +197,15 @@ function renderSidebar() {
       item.dataset.slug = a.slug;
       item.dataset.title = a.title.toLowerCase();
       item.textContent = a.title;
-      group.appendChild(item);
+      itemsWrap.appendChild(item);
     }
     nav.appendChild(group);
   }
+}
+
+function toggleGroup(titleEl, itemsWrap) {
+  const collapsed = itemsWrap.classList.toggle("collapsed");
+  titleEl.classList.toggle("collapsed", collapsed);
 }
 
 function markActive(slug) {
