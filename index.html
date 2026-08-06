@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>申论</title>
+  <meta name="description" content="申论范文阅读站点">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="#" class="brand" id="brand-link">
+        <span class="brand-logo">◆</span>
+        <span class="brand-name">申论</span>
+      </a>
+
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path fill="currentColor" d="M9.5 3a6.5 6.5 0 0 1 4.9 10.8l5.4 5.4-1.1 1.1-5.4-5.4A6.5 6.5 0 1 1 9.5 3zm0 1.7a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6z"/>
+        </svg>
+        <input id="search-input" type="text" placeholder="搜索文章…" aria-label="搜索文章">
+      </div>
+
+      <nav class="navbar-actions">
+        <a href="https://github.com/" target="_blank" rel="noopener" class="nav-link">GitHub</a>
+      </nav>
+
+      <button class="sidebar-toggle" id="sidebar-toggle" aria-label="切换目录">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主体三栏布局 -->
+  <div class="layout">
+    <!-- 左侧侧边栏 -->
+    <aside class="sidebar" id="sidebar" aria-label="文章目录">
+      <nav class="sidebar-nav" id="sidebar-nav">
+        <div class="sidebar-status">正在加载目录…</div>
+      </nav>
+    </aside>
+    <div class="sidebar-mask" id="sidebar-mask"></div>
+
+    <!-- 右侧正文区 -->
+    <main class="main" id="main">
+      <div class="content-wrap">
+        <div class="content-area">
+          <div class="breadcrumb" id="breadcrumb"></div>
+          <article class="content" id="article-container">
+            <div class="loading">正在加载文章…</div>
+          </article>
+          <nav class="prev-next" id="prev-next" aria-label="上下篇导航"></nav>
+        </div>
+
+        <!-- 本页大纲 -->
+        <aside class="toc" id="toc" aria-label="本页大纲">
+          <div class="toc-title">本页目录</div>
+          <div class="toc-list" id="toc-list"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
