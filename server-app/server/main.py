@@ -51,10 +51,27 @@ app.add_middleware(
 )
 
 # 托管管理后台静态文件（同源，避免跨域问题）
-# 访问 /admin/ → admin/login.html, admin/dashboard.html 等
+# 管理后台为 Vue 3 构建产物（admin/dist），使用 history 模式路由。
+# 用一个 catch-all 路由处理：静态文件存在则返回文件，否则回退 index.html（SPA）。
 import os
-ADMIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "admin")
-app.mount("/admin", StaticFiles(directory=ADMIN_DIR, html=True), name="admin")
+from fastapi.responses import FileResponse
+
+ADMIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "admin", "dist")
+ADMIN_INDEX = os.path.join(ADMIN_DIR, "index.html")
+
+
+@app.get("/admin/{full_path:path}")
+def admin_serve(full_path: str):
+    """管理后台静态文件 + Vue SPA history 路由 fallback。"""
+    # 安全：防止路径穿越
+    candidate = os.path.normpath(os.path.join(ADMIN_DIR, full_path))
+    if full_path and candidate.startswith(ADMIN_DIR) and os.path.isfile(candidate):
+        return FileResponse(candidate)
+    # 静态资源（assets/*）必须命中文件，否则不回退（避免误把 404 资源当 HTML）
+    if full_path.startswith("assets/"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资源不存在")
+    # 其余路径（含根 /admin/、/admin/dashboard 等）回退到 index.html
+    return FileResponse(ADMIN_INDEX)
 
 
 def generate_slug(title: str) -> str:
