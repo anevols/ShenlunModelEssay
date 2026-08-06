@@ -42,6 +42,62 @@ function getMeta(doc, name) {
 function parseArticle(htmlText, file) {
   const doc = new DOMParser().parseFromString(htmlText, "text/html");
   const title = getMeta(doc, "article-title") || doc.querySelector("title")?.textContent?.trim() || file.name;
+
+  // 收集文章内嵌的 <style> 和 <script>（外链/内联），渲染时重新插入以生效
+  const headStyles = Array.from(doc.querySelectorAll("head style, body style")).map(n => n.outerHTML).join("\n");
+  const scripts = Array.from(doc.querySelectorAll("script")).map(n => ({
+    src: n.getAttribute("src") || "",
+    type: n.getAttribute("type") || "text/javascript",
+    code: n.textContent || "",
+  }));
+
+  // 1. 标准结构：<div class="article-page"> 内含 .article-header 和 .article-content
+  const pageEl = doc.querySelector(".article-page");
+  if (pageEl) {
+    const contentEl = pageEl.querySelector(".article-content");
+    const headerH1 = pageEl.querySelector(".article-header h1");
+    const metaEl = pageEl.querySelector(".article-meta");
+    return {
+      slug: file.name.replace(/\.html$/, ""),
+      fileName: file.name,
+      url: file.download_url,
+      title,
+      category: getMeta(doc, "article-category") || "申论",
+      order: parseInt(getMeta(doc, "article-order") || "999", 10),
+      date: getMeta(doc, "article-date"),
+      description: getMeta(doc, "article-description"),
+      author: getMeta(doc, "article-author"),
+      contentHtml: (contentEl ? contentEl.innerHTML : pageEl.innerHTML) + (headStyles ? "\n" + headStyles : ""),
+      titleHtml: headerH1 ? headerH1.outerHTML : `<h1>${escapeHtml(title)}</h1>`,
+      metaHtml: metaEl ? metaEl.outerHTML : "",
+      scripts,
+    };
+  }
+
+  // 2. 兼容非标准结构：直接从 body 提取，把首个 h1 拆为标题避免重复
+  const bodyEl = doc.body;
+  let contentHtml = bodyEl?.innerHTML || "";
+  let titleHtml = `<h1>${escapeHtml(title)}</h1>`;
+  let metaHtml = "";
+
+  // 创建临时容器，检测并剥离正文开头的 h1 作为标题
+  const tmp = document.createElement("div");
+  tmp.innerHTML = contentHtml;
+  const firstH1 = tmp.querySelector("h1");
+  if (firstH1 && firstH1.parentElement === tmp) {
+    titleHtml = firstH1.outerHTML;
+    firstH1.remove();
+    // 若 h1 后紧跟的是 .article-meta 或日期行（居中、颜色较浅的 div/p），一并提取为 meta
+    const next = tmp.firstElementChild;
+    if (next && (next.classList.contains("article-meta") || /(text-align\s*:\s*center|color\s*:\s*#(888|999|9ca|6b72))/i.test(next.getAttribute("style") || ""))) {
+      metaHtml = next.outerHTML;
+      next.remove();
+    }
+    contentHtml = tmp.innerHTML;
+  }
+
+  if (headStyles) contentHtml = headStyles + "\n" + contentHtml;
+
   return {
     slug: file.name.replace(/\.html$/, ""),
     fileName: file.name,
@@ -52,9 +108,10 @@ function parseArticle(htmlText, file) {
     date: getMeta(doc, "article-date"),
     description: getMeta(doc, "article-description"),
     author: getMeta(doc, "article-author"),
-    contentHtml: doc.querySelector(".article-content")?.innerHTML || doc.body?.innerHTML || "",
-    titleHtml: doc.querySelector(".article-header h1")?.outerHTML || `<h1>${escapeHtml(title)}</h1>`,
-    metaHtml: doc.querySelector(".article-meta")?.outerHTML || "",
+    contentHtml,
+    titleHtml,
+    metaHtml,
+    scripts,
   };
 }
 
@@ -132,6 +189,33 @@ function renderArticle(article) {
   markActive(article.slug);
   window.scrollTo({ top: 0, behavior: "auto" });
   highlightTocOnScroll();
+  // 执行文章内嵌脚本（外链/内联）
+  if (article.scripts && article.scripts.length) executeArticleScripts(container, article.scripts);
+}
+
+function executeArticleScripts(container, scripts) {
+  // innerHTML 插入的 script 不会执行，需手动重建 script 元素追加到 DOM
+  // 外链脚本按顺序串行加载，内联脚本按顺序立即执行
+  let chain = Promise.resolve();
+  scripts.forEach((s) => {
+    chain = chain.then(() => new Promise((resolve) => {
+      const sc = document.createElement("script");
+      if (s.type && s.type !== "text/javascript") sc.type = s.type;
+      if (s.src) {
+        sc.src = s.src;
+        sc.async = false;
+        sc.onload = () => resolve();
+        sc.onerror = () => resolve();
+        container.appendChild(sc);
+      } else if (s.code.trim()) {
+        sc.textContent = s.code;
+        container.appendChild(sc);
+        resolve();
+      } else {
+        resolve();
+      }
+    }));
+  });
 }
 
 function buildHeadingIds(container) {
@@ -281,7 +365,7 @@ async function init() {
           title: f.name.replace(/\.html$/, ""), category: "申论", order: 999,
           date: "", description: "", author: "",
           contentHtml: `<p>（读取失败：${escapeHtml(e.message)}）</p>`,
-          titleHtml: `<h1>${escapeHtml(f.name)}</h1>`, metaHtml: "" };
+          titleHtml: `<h1>${escapeHtml(f.name)}</h1>`, metaHtml: "", scripts: [] };
       }
     }));
     ARTICLES = metas.sort((a, b) => {
