@@ -218,7 +218,16 @@ function markActive(slug) {
 
 function renderArticle(article) {
   const container = document.getElementById("article-container");
-  container.innerHTML = article.titleHtml + article.metaHtml + article.contentHtml;
+  let metaHtml = article.metaHtml || "";
+  // 若 metaHtml 中未含日期，则用 article.date/author 补充生成标准 meta 行
+  if ((article.date || article.author) && !/<time/i.test(metaHtml) && !/article-meta/i.test(metaHtml)) {
+    const dateHtml = article.date ? `<time datetime="${escapeHtml(article.date)}">${escapeHtml(article.date)}</time>` : "";
+    const sep = dateHtml && article.author ? " · " : "";
+    const authorHtml = article.author ? escapeHtml(article.author) : "";
+    const extraMeta = `<div class="article-meta">${dateHtml}${sep}${authorHtml}</div>`;
+    metaHtml = metaHtml ? metaHtml + extraMeta : extraMeta;
+  }
+  container.innerHTML = article.titleHtml + metaHtml + article.contentHtml;
   document.getElementById("breadcrumb").innerHTML =
     `<a href="#" data-breadcrumb="home">首页</a><span class="breadcrumb-sep">/</span>` +
     `<a href="#" data-breadcrumb="category" data-category="${escapeHtml(article.category)}">${escapeHtml(article.category)}</a><span class="breadcrumb-sep">/</span>` +
