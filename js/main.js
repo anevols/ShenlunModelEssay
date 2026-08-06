@@ -80,18 +80,45 @@ function parseArticle(htmlText, file) {
   let titleHtml = `<h1>${escapeHtml(title)}</h1>`;
   let metaHtml = "";
 
-  // 创建临时容器，检测并剥离正文开头的 h1 作为标题
+  // 创建临时容器，检测并剥离正文最前面的 h1 作为标题（无论嵌套多深）
   const tmp = document.createElement("div");
   tmp.innerHTML = contentHtml;
-  const firstH1 = tmp.querySelector("h1");
-  if (firstH1 && firstH1.parentElement === tmp) {
+
+  // 找第一个 h1（允许嵌套在 div 等容器内），且位置在 body 开头（不是中间/结尾）
+  const firstH1 = (() => {
+    // 使用深度优先遍历，找到文档流第一个 h1；若它前面已有大量文字/元素则视为正文内标题不剥离
+    const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_ELEMENT);
+    let firstH1Node = null;
+    let distance = 0;
+    let n;
+    while ((n = walker.nextNode())) {
+      if (n.tagName === "H1") { firstH1Node = n; break; }
+      // 前面跳过的非容器元素（p/img/pre 等）超过 2 个，认为已进入正文，不再剥离
+      if (!/^(div|section|article|main|header|aside|nav|footer|span|style)$/i.test(n.tagName)) {
+        distance++;
+        if (distance > 3) return null;
+      }
+    }
+    return firstH1Node;
+  })();
+
+  if (firstH1) {
     titleHtml = firstH1.outerHTML;
+    const h1Parent = firstH1.parentElement;
+    const nextAfterH1 = firstH1.nextElementSibling;
     firstH1.remove();
-    // 若 h1 后紧跟的是 .article-meta 或日期行（居中、颜色较浅的 div/p），一并提取为 meta
-    const next = tmp.firstElementChild;
-    if (next && (next.classList.contains("article-meta") || /(text-align\s*:\s*center|color\s*:\s*#(888|999|9ca|6b72))/i.test(next.getAttribute("style") || ""))) {
-      metaHtml = next.outerHTML;
-      next.remove();
+    // 若紧跟在 h1 后面的兄弟元素是 .article-meta 或居中/灰色日期说明行，一并提取为 meta
+    if (nextAfterH1 && (
+      nextAfterH1.classList.contains("article-meta") ||
+      /(text-align\s*:\s*center|color\s*:\s*#(888|999|9ca|6b72|999|99a))/i.test(nextAfterH1.getAttribute("style") || "") ||
+      (/^(p|div)$/i.test(nextAfterH1.tagName) && /居中|点击|提示|解析|标签/.test(nextAfterH1.textContent || ""))
+    )) {
+      metaHtml = nextAfterH1.outerHTML;
+      nextAfterH1.remove();
+    }
+    // 如果 h1 的父容器现在变成空的（且非最外层必要容器），一并移除以避免空 padding
+    if (h1Parent && h1Parent !== tmp && h1Parent.children.length === 0 && h1Parent.textContent?.trim() === "") {
+      h1Parent.remove();
     }
     contentHtml = tmp.innerHTML;
   }
