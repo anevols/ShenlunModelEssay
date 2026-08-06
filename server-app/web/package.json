@@ -1,8 +1,9 @@
 {
-  "name": "shenlun-web",
+  "name": "shenlun-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "申论阅读站 + 管理后台 统一前端（多入口）",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
