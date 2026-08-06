@@ -78,7 +78,9 @@ onMounted(() => {
       <nav class="navbar-actions">
         <a href="https://github.com/" target="_blank" rel="noopener" class="nav-link">GitHub</a>
       </nav>
-      <a v-if="isLoggedIn" href="/admin/dashboard" class="nav-link nav-link-fixed">管理后台</a>
+      <!-- 未登录显示「登录」，已登录显示「管理后台」 -->
+      <a v-if="!isLoggedIn" href="/admin/" class="nav-link nav-link-fixed">登录</a>
+      <a v-else href="/admin/dashboard" class="nav-link nav-link-fixed">管理后台</a>
 
       <button class="sidebar-toggle" aria-label="切换目录" @click="toggleSidebar">
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
