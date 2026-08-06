@@ -1,0 +1,60 @@
+// 认证与 API 封装（阅读站、登录页、管理后台共享）
+// 同源部署：API_BASE 为空（FastAPI 同时托管前端和 API）
+
+const API_BASE = ''
+const TOKEN_KEY = 'token'
+const USERNAME_KEY = 'username'
+const IS_ADMIN_KEY = 'is_admin'
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function getUsername() {
+  return localStorage.getItem(USERNAME_KEY)
+}
+
+export function getIsAdmin() {
+  return localStorage.getItem(IS_ADMIN_KEY) === '1'
+}
+
+export function setAuth(token, username, isAdmin) {
+  localStorage.setItem(TOKEN_KEY, token)
+  localStorage.setItem(USERNAME_KEY, username)
+  localStorage.setItem(IS_ADMIN_KEY, isAdmin ? '1' : '0')
+}
+
+export function clearAuth() {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(USERNAME_KEY)
+  localStorage.removeItem(IS_ADMIN_KEY)
+}
+
+// 统一请求封装：自动带 token、抛出后端 detail
+async function request(path, { method = 'GET', body, auth = false } = {}) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (auth) {
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+  }
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (res.status === 204) return null
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.detail || `请求失败 (${res.status})`)
+  return data
+}
+
+export const api = {
+  register: (username, password) => request('/api/register', { method: 'POST', body: { username, password } }),
+  login: (username, password) => request('/api/login', { method: 'POST', body: { username, password } }),
+  me: () => request('/api/me', { auth: true }),
+  listArticles: () => request('/api/articles'),
+  getArticle: (slug) => request(`/api/articles/${slug}`),
+  createArticle: (data) => request('/api/articles', { method: 'POST', body: data, auth: true }),
+  updateArticle: (slug, data) => request(`/api/articles/${slug}`, { method: 'PUT', body: data, auth: true }),
+  deleteArticle: (slug) => request(`/api/articles/${slug}`, { method: 'DELETE', auth: true }),
+}

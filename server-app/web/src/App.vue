@@ -99,8 +99,8 @@ onMounted(() => {
       </nav>
 
       <!-- 右侧固定区：根据登录状态显示 -->
-      <!-- 未登录 → 登录入口 -->
-      <a v-if="isAdmin === null" href="/admin/" class="nav-link nav-link-fixed">登录</a>
+      <!-- 未登录 → 登录入口（独立登录页 /login，开放注册） -->
+      <a v-if="isAdmin === null" href="/login" class="nav-link nav-link-fixed">登录</a>
       <!-- 管理员 → 管理后台入口（普通用户不显示） -->
       <a v-else-if="isAdmin" href="/admin/dashboard" class="nav-link nav-link-fixed">管理后台</a>
 

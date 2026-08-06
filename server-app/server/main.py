@@ -51,8 +51,9 @@ app.add_middleware(
 )
 
 # 托管前端静态文件（同源，避免跨域问题）
-# 阅读站与管理后台为同一个 Vue 项目的多入口构建产物（web/dist）：
+# 阅读站、登录页与管理后台为同一个 Vue 项目的多入口构建产物（web/dist）：
 #   - index.html → 阅读站（根路径 /）
+#   - login.html → 登录/注册页（/login，独立应用，开放注册）
 #   - admin.html → 管理后台（/admin/）
 # 共享 assets/ 目录。
 import os
@@ -60,7 +61,15 @@ from fastapi.responses import FileResponse, RedirectResponse
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web", "dist")
 WEB_INDEX = os.path.join(WEB_DIR, "index.html")
+LOGIN_INDEX = os.path.join(WEB_DIR, "login.html")
 ADMIN_INDEX = os.path.join(WEB_DIR, "admin.html")
+
+
+@app.get("/login")
+@app.get("/login/")
+def login_serve():
+    """登录/注册页：独立 Vue 应用，回退 login.html。"""
+    return FileResponse(LOGIN_INDEX)
 
 
 @app.get("/admin")

@@ -1,13 +1,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { api, getUsername, clearAuth, getToken } from '../auth.js'
 import ArticleEditor from '../components/ArticleEditor.vue'
 
-const router = useRouter()
-
 // 登录态：未登录跳回登录页（守卫已拦截，这里兜底）
-if (!getToken()) router.replace({ name: 'login' })
+// 登录页是独立 Vue 应用，需用 location 跳转
+if (!getToken()) window.location.href = '/login'
 
 const username = ref(getUsername() || '管理员')
 const allArticles = ref([])
@@ -70,7 +68,8 @@ async function deleteArticle(slug) {
 
 function logout() {
   clearAuth()
-  router.push({ name: 'login' })
+  // 登录页是独立 Vue 应用，需用 location 跳转
+  window.location.href = '/login'
 }
 
 onMounted(loadArticles)
