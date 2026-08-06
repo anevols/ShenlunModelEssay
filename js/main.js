@@ -220,8 +220,8 @@ function renderArticle(article) {
   const container = document.getElementById("article-container");
   container.innerHTML = article.titleHtml + article.metaHtml + article.contentHtml;
   document.getElementById("breadcrumb").innerHTML =
-    `<a href="#">首页</a><span class="breadcrumb-sep">/</span>` +
-    `<span>${escapeHtml(article.category)}</span><span class="breadcrumb-sep">/</span>` +
+    `<a href="#" data-breadcrumb="home">首页</a><span class="breadcrumb-sep">/</span>` +
+    `<a href="#" data-breadcrumb="category" data-category="${escapeHtml(article.category)}">${escapeHtml(article.category)}</a><span class="breadcrumb-sep">/</span>` +
     `<span>${escapeHtml(article.title)}</span>`;
   document.title = `${article.title} · 申论`;
   buildHeadingIds(container);
@@ -377,6 +377,46 @@ function bindSidebarToggle() {
   });
 }
 
+function bindBreadcrumb() {
+  document.getElementById("breadcrumb").addEventListener("click", (e) => {
+    const target = e.target.closest("[data-breadcrumb]");
+    if (!target) return;
+    e.preventDefault();
+    if (target.dataset.breadcrumb === "home") {
+      clearCategoryFilter();
+    } else if (target.dataset.breadcrumb === "category") {
+      filterByCategory(target.dataset.category);
+    }
+  });
+}
+
+function filterByCategory(category) {
+  const groups = document.querySelectorAll(".sidebar-group");
+  let activeGroup = null;
+  groups.forEach((g) => {
+    const title = g.querySelector(".sidebar-group-title");
+    const isMatch = title.textContent.replace(/^▾\s*/, "") === category;
+    g.style.display = isMatch ? "" : "none";
+    if (isMatch) {
+      activeGroup = g;
+      title.classList.remove("collapsed");
+      g.querySelector(".sidebar-group-items")?.classList.remove("collapsed");
+    }
+  });
+  const bc = document.getElementById("breadcrumb");
+  const catLink = bc.querySelector('[data-breadcrumb="category"]');
+  if (catLink) catLink.classList.toggle("filtering", true);
+  const sidebar = document.getElementById("sidebar");
+  if (sidebar && window.innerWidth <= 900) sidebar.classList.add("open"), document.getElementById("sidebar-mask")?.classList.add("open");
+}
+
+function clearCategoryFilter() {
+  document.querySelectorAll(".sidebar-group").forEach((g) => { g.style.display = ""; });
+  const bc = document.getElementById("breadcrumb");
+  const catLink = bc.querySelector('[data-breadcrumb="category"]');
+  if (catLink) catLink.classList.remove("filtering");
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -392,6 +432,7 @@ async function init() {
   const repo = CONFIG.repo || dRepo;
   bindSearch();
   bindSidebarToggle();
+  bindBreadcrumb();
   window.addEventListener("hashchange", route);
   try {
     const files = await listFiles(owner, repo, CONFIG.articlesPath);
