@@ -4,19 +4,19 @@
  * 各模块拆分到独立文件（在 index.html 中按顺序加载）：
  *   utils.js            通用工具函数（escapeHtml / getMeta / detectRepo）
  *   article-parser.js   文章解析（parseArticle）
- *   file-loader.js      文章文件列表加载（listFiles）
+ *   file-loader.js      文章文件列表加载、meta 抓取、并发控制
  *   sidebar.js          侧边栏渲染与分类筛选
  *   toc.js              右侧本页大纲
  *   article-renderer.js 文章正文渲染
- *   router.js           hash 路由与文章加载
+ *   router.js           hash 路由与文章加载（按需加载正文）
  *   ui-bindings.js      全局 UI 事件绑定
  *   app.js              启动入口（调用 init）
  *
- * 工作方式：
- * 1. 通过 GitHub Contents API 列出 articles/ 下所有 .html 文件（跳过 _ 开头的模板）；
- * 2. 抓取每个文件 <meta> 中的分类/排序/标题等信息，构建目录树；
- * 3. 用 hash 路由（#文件名）切换文章，把 .article-content 注入右侧主区；
- * 4. 自动提取正文 h2/h3 生成右侧“本页大纲”，并维护上一篇/下一篇。
+ * 性能设计：
+ * - 首屏只抓取每篇文章的 meta（标题/分类/序号/日期），立即渲染目录树；
+ *   不预下载正文，避免文章数量增多时首屏白屏与内存暴涨。
+ * - 点击文章 / hash 路由时才按需加载正文，并使用 LRU 缓存限制常驻内存的文章正文数量。
+ * - 抓取 meta 时用并发限制（CONFIG.metaConcurrency），避免触发 GitHub API 限流。
  *
  * 新增文章：把 .html 放进 articles/ 即可，无需改任何代码。
  */
@@ -27,16 +27,37 @@ const CONFIG = {
   articlesPath: "articles",
   branch: "HEAD",
   defaultSlug: "",
+  metaConcurrency: 6,   // 首屏抓取 meta 的最大并发数
+  contentCacheLimit: 8, // 正文 LRU 缓存上限（篇），超出淘汰最久未访问的
 };
 
 // 全局状态
 let ARTICLES = [];
 let currentSlug = "";
+
+// 正文缓存：仅缓存已加载正文的文章，带 LRU 淘汰，避免大量正文常驻内存
 const articleCache = new Map();
 
 function showError(msg) {
   document.getElementById("sidebar-nav").innerHTML = `<div class="sidebar-status error">${escapeHtml(msg)}</div>`;
   document.getElementById("article-container").innerHTML = `<div class="loading error">${escapeHtml(msg)}</div>`;
+}
+
+/**
+ * LRU 缓存操作：访问/写入时把 key 移到最新位置；超过上限删除最旧条目。
+ */
+function touchCache(key) {
+  if (articleCache.has(key)) {
+    const v = articleCache.get(key);
+    articleCache.delete(key);
+    articleCache.set(key, v);
+  }
+}
+function evictCacheIfNeeded() {
+  while (articleCache.size > CONFIG.contentCacheLimit) {
+    const oldest = articleCache.keys().next().value;
+    articleCache.delete(oldest);
+  }
 }
 
 async function init() {
@@ -50,24 +71,21 @@ async function init() {
   try {
     const files = await listFiles(owner, repo, CONFIG.articlesPath);
     if (files.length === 0) { ARTICLES = []; renderSidebar(); route(); return; }
-    const metas = await Promise.all(files.map(async (f) => {
-      try {
-        const res = await fetch(f.download_url);
-        const text = await res.text();
-        return parseArticle(text, f);
-      } catch (e) {
+    // 首屏只抓 meta（不保留正文），用并发限制避免 GitHub API 限流
+    const metas = await mapWithConcurrency(files, async (f) => {
+      try { return await fetchArticleMeta(f); }
+      catch (e) {
         return { slug: f.name.replace(/\.html$/, ""), fileName: f.name, url: f.download_url,
           title: f.name.replace(/\.html$/, ""), category: "申论", order: 999,
           date: "", description: "", author: "",
-          contentHtml: `<p>（读取失败：${escapeHtml(e.message)}）</p>`,
-          titleHtml: `<h1>${escapeHtml(f.name)}</h1>`, metaHtml: "", scripts: [] };
+          contentHtml: "", titleHtml: "", metaHtml: "", scripts: [] };
       }
-    }));
-    ARTICLES = metas.sort((a, b) => {
+    }, CONFIG.metaConcurrency);
+    ARTICLES = metas.filter(Boolean).sort((a, b) => {
       if (a.category !== b.category) return a.category.localeCompare(b.category, "zh");
       return a.order - b.order;
     });
-    for (const a of ARTICLES) articleCache.set(a.slug, a);
+    // 首屏不预加载正文，目录树先渲染出来，route() 触发当前文章的按需加载
     renderSidebar();
     route();
   } catch (e) {
