@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生成文章清单 manifest.json</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f6f8fa; color: #1f2328; line-height: 1.6; padding: 32px 20px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  .sub { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 15px; margin-bottom: 12px; color: #374151; }
+  .btn { display: inline-block; padding: 8px 16px; border: 1px solid #2563eb; background: #2563eb; color: #fff; border-radius: 6px; font-size: 14px; cursor: pointer; transition: background .15s; font-family: inherit; }
+  .btn:hover { background: #1d4ed8; }
+  .btn.secondary { background: #fff; color: #2563eb; }
+  .btn.secondary:hover { background: #eff6ff; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .status { font-size: 13px; color: #6b7280; margin-top: 12px; min-height: 20px; }
+  .status.error { color: #b91c1c; }
+  .status.success { color: #15803d; }
+  .progress { margin-top: 12px; font-size: 13px; color: #6b7280; }
+  .progress-bar { height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .progress-bar > div { height: 100%; background: #2563eb; width: 0%; transition: width .2s; }
+  pre { background: #0d1117; color: #e6edf3; padding: 16px; border-radius: 8px; font-size: 12.5px; line-height: 1.55; font-family: "SFMono-Regular", Consolas, monospace; overflow-x: auto; max-height: 420px; }
+  .hint { font-size: 13px; color: #6b7280; margin-top: 10px; }
+  .hint code { background: #eef0f2; padding: 1px 6px; border-radius: 3px; font-size: 12.5px; }
+  ol { margin: 8px 0 0 20px; font-size: 13.5px; color: #4b5563; }
+  ol li { margin-bottom: 4px; }
+  .file-list { font-size: 13px; color: #6b7280; margin-top: 8px; max-height: 120px; overflow-y: auto; }
+  .file-list div { padding: 2px 0; }
+  .file-list .ok { color: #15803d; }
+  .file-list .fail { color: #b91c1c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>生成文章清单 manifest.json</h1>
+  <p class="sub">扫描 <code>articles/</code> 下所有 HTML，提取 meta 生成清单。无需 Node 环境，浏览器内完成。</p>
+
+  <div class="card">
+    <h2>使用步骤</h2>
+    <ol>
+      <li>确保本地服务器已开启，且 <code>articles/</code> 目录可被访问（Nginx 需开启 <code>autoindex on</code>，Python http.server 默认支持）。</li>
+      <li>点击下方「开始扫描并生成」按钮。</li>
+      <li>生成完成后，点击「下载 manifest.json」，把文件放到 <code>articles/</code> 目录覆盖旧文件。</li>
+      <li>刷新站点首页，首屏即会优先读取 manifest，加载更快。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>扫描与生成</h2>
+    <div class="btn-row">
+      <button class="btn" id="btn-generate">开始扫描并生成</button>
+      <button class="btn secondary" id="btn-download" disabled>下载 manifest.json</button>
+      <button class="btn secondary" id="btn-copy" disabled>复制 JSON</button>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="progress" id="progress-wrap" style="display:none;">
+      <span id="progress-text">0 / 0</span>
+      <div class="progress-bar"><div id="progress-fill"></div></div>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>生成结果</h2>
+    <pre id="output">点击「开始扫描并生成」后，结果会显示在这里。</pre>
+    <p class="hint">提示：把下载的 <code>manifest.json</code> 放到 <code>articles/</code> 目录即可。GitHub Pages 部署时，GitHub Actions 会自动生成，无需手动操作。</p>
+  </div>
+</div>
+
+<script>
+const ARTICLES_PATH = "articles";
+const statusEl = document.getElementById("status");
+const outputEl = document.getElementById("output");
+const btnGen = document.getElementById("btn-generate");
+const btnDl = document.getElementById("btn-download");
+const btnCopy = document.getElementById("btn-copy");
+const progressWrap = document.getElementById("progress-wrap");
+const progressText = document.getElementById("progress-text");
+const progressFill = document.getElementById("progress-fill");
+const fileListEl = document.getElementById("file-list");
+
+let lastManifest = null;
+
+function setStatus(msg, type) {
+  statusEl.textContent = msg;
+  statusEl.className = "status" + (type ? " " + type : "");
+}
+
+function getMeta(doc, name) {
+  return doc.querySelector(`meta[name="${name}"]`)?.getAttribute("content")?.trim() || "";
+}
+
+// 列出 articles/ 下的 .html 文件
+async function listHtmlFiles() {
+  const res = await fetch(`${ARTICLES_PATH}/`);
+  if (!res.ok) throw new Error(`无法读取目录 ${ARTICLES_PATH}/（${res.status}）。Nginx 需开启 autoindex on。`);
+  const html = await res.text();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return Array.from(doc.querySelectorAll("a"))
+    .map((a) => a.getAttribute("href") || "")
+    .filter((h) => h.endsWith(".html") && !h.startsWith("/") && !h.startsWith("_"))
+    .map((name) => decodeURIComponent(name));
+}
+
+// 提取单篇文章的 meta
+async function extractMeta(fileName) {
+  const url = `${ARTICLES_PATH}/${encodeURIComponent(fileName)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const doc = new DOMParser().parseFromString(text, "text/html");
+  const title = getMeta(doc, "article-title") || doc.querySelector("title")?.textContent?.trim() || fileName.replace(/\.html$/, "");
+  return {
+    slug: fileName.replace(/\.html$/, ""),
+    file: fileName,
+    title,
+    category: getMeta(doc, "article-category") || "申论",
+    order: parseInt(getMeta(doc, "article-order") || "999", 10),
+    date: getMeta(doc, "article-date"),
+    author: getMeta(doc, "article-author"),
+    description: getMeta(doc, "article-description"),
+  };
+}
+
+async function generate() {
+  btnGen.disabled = true;
+  btnDl.disabled = true;
+  btnCopy.disabled = true;
+  fileListEl.innerHTML = "";
+  outputEl.textContent = "正在扫描目录…";
+  setStatus("正在扫描 articles/ 目录…");
+  progressWrap.style.display = "none";
+
+  try {
+    const files = await listHtmlFiles();
+    if (files.length === 0) {
+      setStatus("articles/ 目录下没有 .html 文件。", "error");
+      outputEl.textContent = "未找到文章。";
+      btnGen.disabled = false;
+      return;
+    }
+
+    setStatus(`发现 ${files.length} 篇文章，正在提取 meta…`);
+    progressWrap.style.display = "block";
+    progressText.textContent = `0 / ${files.length}`;
+    progressFill.style.width = "0%";
+
+    const manifest = [];
+    for (let i = 0; i < files.length; i++) {
+      const fileName = files[i];
+      try {
+        const meta = await extractMeta(fileName);
+        manifest.push(meta);
+        fileListEl.innerHTML += `<div class="ok">✓ ${fileName} —— ${meta.title}</div>`;
+      } catch (e) {
+        fileListEl.innerHTML += `<div class="fail">✗ ${fileName} —— ${e.message}</div>`;
+      }
+      const pct = Math.round(((i + 1) / files.length) * 100);
+      progressText.textContent = `${i + 1} / ${files.length}`;
+      progressFill.style.width = pct + "%";
+    }
+
+    // 按 category → order 排序，与前端展示顺序一致
+    manifest.sort((a, b) => {
+      if (a.category !== b.category) return a.category.localeCompare(b.category, "zh");
+      return a.order - b.order;
+    });
+
+    lastManifest = manifest;
+    const json = JSON.stringify(manifest, null, 2) + "\n";
+    outputEl.textContent = json;
+    setStatus(`生成完成：${manifest.length} 篇文章。点击「下载 manifest.json」保存到 articles/ 目录。`, "success");
+    btnDl.disabled = false;
+    btnCopy.disabled = false;
+  } catch (e) {
+    setStatus(e.message, "error");
+    outputEl.textContent = "生成失败：" + e.message;
+  } finally {
+    btnGen.disabled = false;
+  }
+}
+
+function download() {
+  if (!lastManifest) return;
+  const blob = new Blob([JSON.stringify(lastManifest, null, 2) + "\n"], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "manifest.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function copy() {
+  if (!lastManifest) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(lastManifest, null, 2));
+    setStatus("已复制到剪贴板，可粘贴到 articles/manifest.json。", "success");
+  } catch (e) {
+    setStatus("复制失败，请手动选中上方 JSON 复制。", "error");
+  }
+}
+
+btnGen.addEventListener("click", generate);
+btnDl.addEventListener("click", download);
+btnCopy.addEventListener("click", copy);
+</script>
+</body>
+</html>
