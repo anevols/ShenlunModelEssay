@@ -55,6 +55,17 @@
       </div>
       <form id="article-form" class="article-form">
         <input type="hidden" id="article-id">
+
+        <!-- 上传 HTML 文件自动识别 -->
+        <div class="form-group upload-group">
+          <label>从 HTML 文件导入</label>
+          <div class="upload-area">
+            <input type="file" id="f-upload" accept=".html,.htm" hidden>
+            <button type="button" class="btn-upload" id="upload-btn">选择 HTML 文件</button>
+            <span class="upload-hint" id="upload-hint">上传后自动识别标题、分类、正文等</span>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label for="f-title">标题 *</label>
