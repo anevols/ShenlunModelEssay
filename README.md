@@ -1,10 +1,60 @@
 # 申论范文阅读站
 
-基于纯静态文件的申论范文阅读站点，支持自动发现 `articles/` 下的文章、分类目录树、hash 路由、搜索过滤、滚动大纲高亮与移动端响应式。
+申论范文阅读站点，提供两个独立版本：
 
-## 新增文章
+- **`static-site/`** — 纯静态站点，部署到 GitHub Pages，无需后端
+- **`server-app/`** — 前后端分离版（FastAPI + 管理后台），部署到自有服务器，支持登录注册与文章后台管理
 
-把符合规范的 `.html` 文件放入 `articles/` 目录即可，无需改动任何代码。
+两个版本的阅读站前端（`index.html`、`css/`、`js/`、`articles/`）各自独立一份，可分别部署。
+
+## 目录结构
+
+```
+/workspace
+├── static-site/              # 静态版（GitHub Pages）
+│   ├── index.html            # 阅读站首页
+│   ├── css/  js/             # 阅读站样式与脚本
+│   ├── articles/             # 文章库（数据源）
+│   ├── scripts/              # manifest 生成脚本
+│   └── .nojekyll             # 禁用 Jekyll
+│
+├── server-app/               # 前后端分离版（自有服务器）
+│   ├── index.html            # 阅读站首页（同源托管）
+│   ├── css/  js/             # 阅读站样式与脚本
+│   ├── articles/             # 文章库（静态副本）
+│   ├── admin/                # 管理后台前端
+│   │   ├── login.html        # 登录/注册页
+│   │   ├── dashboard.html    # 文章管理页（含上传 HTML 识别）
+│   │   └── css/  js/
+│   └── server/               # 后端（FastAPI）
+│       ├── main.py           # 主应用（API + 静态托管）
+│       ├── auth.py           # 密码哈希 + JWT
+│       ├── models.py         # ORM 模型
+│       ├── schemas.py        # Pydantic 模型
+│       ├── database.py       # SQLite 连接
+│       └── requirements.txt
+│
+├── .github/workflows/
+│   └── manifest.yml          # 自动生成 static-site 的 manifest.json
+└── README.md
+```
+
+## 版本一：static-site（纯静态，GitHub Pages）
+
+阅读站基于纯静态文件，支持自动发现 `articles/` 下的文章、分类目录树、hash 路由、搜索过滤、滚动大纲高亮与移动端响应式。无后端、无登录。
+
+### 本地预览
+
+```bash
+cd static-site
+python3 -m http.server 8000
+```
+
+浏览器打开 http://127.0.0.1:8000/ 。首屏优先读取 `articles/manifest.json`，无需目录浏览；若 manifest 不存在，才回退到读取 `articles/` 目录列表。
+
+### 新增文章
+
+把符合规范的 `.html` 文件放入 `static-site/articles/` 目录即可，无需改动任何代码。添加后运行一次 `node scripts/generate-manifest.js`（在 `static-site/` 下）更新清单，或由 GitHub Actions 自动更新。
 
 ### Meta 标签规范
 
@@ -13,125 +63,80 @@
 | Meta 标签 | 说明 | 是否必需 |
 |-----------|------|---------|
 | `article-title` | 文章标题（目录树中显示的名称，缺失则回退到 `<title>` 或文件名） | 推荐 |
-| `article-category` | **选题板块**（按主题分类，如"基层治理""乡村振兴""高质量发展""文化自信""以人民为中心""数字中国"等） | 推荐 |
+| `article-category` | **选题板块**（按主题分类，如"基层治理""乡村振兴""高质量发展""文化自信""数字中国"等） | 推荐 |
 | `article-order` | **同一主题板块下**的文章序号，数字越小越靠前（缺失默认 999） | 推荐 |
-| `article-date` | 文章日期（如 `2024-03-15`），显示在标题下方 | 可选 |
-| `article-author` | 作者，显示在日期旁边 | 可选 |
+| `article-date` | 文章日期（如 `2024-03-15`） | 可选 |
+| `article-author` | 作者 | 可选 |
 | `article-description` | 文章摘要 | 可选 |
 
-> `article-category` 按**主题板块**分类，而非按文体（"策论文""政论文"）划分。同一主题下的多篇文章通过 `article-order` 控制排序。
+> `article-category` 按**主题板块**分类，而非按文体划分。同一主题下的多篇文章通过 `article-order` 控制排序。
 
 ### 文章结构
 
-文章通过 [js/main.js](js/main.js) 中的解析逻辑自动提取，详见 [js/main.js](js/main.js) 中的 `parseArticle` 函数。解析支持两种结构：
+文章通过 `js/article-parser.js` 中的 `parseArticle` 函数自动提取，支持两种结构：
 
-**标准结构（推荐）**：使用 `.article-page` > `.article-header` + `.article-content` 容器，主站会自动提取标题、meta 信息和正文，样式统一。可参考现有文章模板。
+**标准结构（推荐）**：使用 `.article-page` > `.article-header` + `.article-content` 容器，主站自动提取标题、meta 信息和正文。
 
-**非标准结构（兼容）**：直接在 `<body>` 内写内容（如内联样式的 HTML），解析器会自动把首个 `<h1>` 剥离为标题、紧跟的说明行提取为副标题，文章内的 `<style>` 和 `<script>` 也会被保留并执行。文章中的 `<h2>`、`<h3>` 会被自动提取生成右侧 TOC 大纲。
+**非标准结构（兼容）**：直接在 `<body>` 内写内容（如内联样式 HTML），解析器自动把首个 `<h1>` 剥离为标题、紧跟的说明行提取为副标题，文章内的 `<style>` 和 `<script>` 也会被保留并执行。`<h2>`、`<h3>` 会被自动提取生成右侧 TOC 大纲。
 
-## 本地预览
+### 文章清单 manifest（首屏加速）
 
-### 方式一：Python 内置服务器（最简单）
+`articles/manifest.json` 是预先提取好的文章 meta 清单，前端首屏只需一次 `fetch` 即可拿到全部文章信息，无需调用 GitHub Contents API、无需目录浏览、不受 API 限流影响。
 
-```bash
-cd /workspace
-python3 -m http.server 8000
-```
-
-浏览器打开 http://127.0.0.1:8000/ 。首屏会优先读取 `articles/manifest.json`（见下文「文章清单 manifest」），无需目录浏览也能工作；若 manifest 不存在，才会回退到读取 `articles/` 目录列表。
-
-### 方式二：Nginx
-
-Nginx 默认禁用目录浏览（`autoindex off`），访问 `articles/` 会返回 403。需要为 `articles/` 路径开启 `autoindex`，否则前端脚本无法发现文章。
-
-在站点配置（如 `/etc/nginx/conf.d/shenlun.conf` 或 `/etc/nginx/nginx.conf` 的 `server` 块）中加入：
-
-```nginx
-server {
-    listen 80;
-    server_name localhost;
-    root /workspace;          # 指向站点根目录
-
-    location / {
-        index index.html;
-    }
-
-    # 关键：为 articles 目录开启目录浏览
-    location /articles/ {
-        autoindex on;             # 允许列出目录内容
-        autoindex_exact_size off; # 显示更友好的文件大小
-        autoindex_localtime on;   # 使用本地时间
-    }
-}
-```
-
-重载配置使其生效：
+**本地生成**：
 
 ```bash
-nginx -t && nginx -s reload
-```
-
-> 说明：前端脚本 [js/main.js](js/main.js) 首屏优先 `fetch('articles/manifest.json')` 拿到全部文章 meta；若 manifest 不存在，才回退到 `fetch('articles/')` 解析目录列表 HTML 来发现文章文件。开启 `autoindex on` 后 Nginx 会返回该目录列表，作为回退方案可正常工作。
-
-## 文章清单 manifest（首屏加速，推荐）
-
-`articles/manifest.json` 是一份预先提取好的文章 meta 清单（标题/分类/序号/日期/作者/摘要），前端首屏只需一次 `fetch` 即可拿到全部文章信息，无需调用 GitHub Contents API、无需目录浏览、无需逐篇抓取 meta，加载最快且不受 API 限流影响。
-
-### 生成方式
-
-**方式一：本地手动生成**
-
-添加或修改文章后运行一次：
-
-```bash
+cd static-site
 node scripts/generate-manifest.js
 ```
 
-会扫描 `articles/` 下所有 `.html`（跳过 `_` 开头的模板），提取 meta 写入 `articles/manifest.json`。
+**GitHub Actions 自动生成**：仓库根 `.github/workflows/manifest.yml` 在 `static-site/articles/` 有变动并推送到 `main` 时，自动运行脚本生成 `manifest.json` 并提交回仓库。
 
-**方式二：GitHub Actions 自动生成**
+### 部署到 GitHub Pages
 
-仓库已配置 [.github/workflows/manifest.yml](.github/workflows/manifest.yml)：当 `articles/` 下的文件有变动并推送到 `main` 时，会自动运行上面的脚本生成 `manifest.json` 并提交回仓库。你只管往 `articles/` 丢 HTML，清单自动更新。
+1. 推送代码到 GitHub 仓库
+2. 进入仓库 **Settings → Pages**，**Source** 选 `Deploy from a branch`，**Branch** 选 `main`，文件夹选 `/ (root)`，保存
+3. 访问 `https://<用户名>.github.io/<仓库名>/static-site/`
 
-### 工作机制
+> 若希望站点直接在根路径访问，可将 `static-site/` 内容作为仓库根，或将 Pages 的发布目录指向 `static-site`。
 
-- 前端 [js/file-loader.js](js/file-loader.js) 的 `loadManifest` 优先 `fetch articles/manifest.json`，成功则直接构建目录树。
-- 失败/不存在时回退到旧的 `listFiles` + `fetchArticleMeta` 逻辑（GitHub Contents API 或本地目录浏览），保持向后兼容。
-- 正文始终按需加载（点击/路由时才 `fetch` 单篇 HTML），并使用 LRU 缓存限制常驻内存的正文数量。
+## 版本二：server-app（前后端分离，自有服务器）
 
-## 部署到 GitHub Pages
+FastAPI 同源托管阅读站静态文件、管理后台前端，并提供认证与文章 CRUD API。文章存于 SQLite，通过管理后台增删改查（支持上传 HTML 文件自动识别填充）。
 
-GitHub Pages 原生支持静态站点托管。首屏优先读取 `articles/manifest.json`（由 GitHub Actions 自动生成并提交），无需目录浏览、无需调用 GitHub Contents API；若 manifest 缺失会自动回退到 Contents API。
+### 启动
 
-### 步骤
-
-1. **推送代码到 GitHub 仓库**
-   - 可以是普通仓库（`your-name/your-repo`），或 `your-name.github.io` 用户主页仓库。
-
-2. **确认 `.nojekyll` 存在**
-   - 仓库根目录已有 `.nojekyll` 空文件，用于禁用 Jekyll 处理，确保所有静态资源按原样托管。
-
-3. **开启 Pages 服务**
-   - 进入仓库 **Settings → Pages**。
-   - **Source** 选择 `Deploy from a branch`。
-   - **Branch** 选择 `main`（或你使用的分支），文件夹选 `/ (root)`，点击 **Save**。
-
-4. **访问站点**
-   - 普通仓库：`https://<用户名>.github.io/<仓库名>/`
-   - 用户主页仓库：`https://<用户名>.github.io/`
-
-### 配置仓库信息（可选）
-
-[js/main.js](js/main.js) 顶部的 `CONFIG` 默认会自动识别 GitHub Pages 域名并推断 `owner`/`repo`。如果你的部署地址特殊（如自定义域名），可手动填写：
-
-```js
-const CONFIG = {
-  owner: "your-name",   // GitHub 用户名
-  repo: "your-repo",    // 仓库名
-  articlesPath: "articles",
-  branch: "HEAD",
-  defaultSlug: "",
-};
+```bash
+cd server-app/server
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-> 线上环境下 `main.js` 会调用 `https://api.github.com/repos/<owner>/<repo>/contents/articles` 获取文章列表，因此**不依赖服务器的目录浏览功能**，无需任何 nginx 配置。
+访问地址：
+- 阅读站：http://127.0.0.1:8000/
+- 管理后台：http://127.0.0.1:8000/admin/login.html
+
+### 管理员账户
+
+首次访问 `/admin/login.html` 时，若数据库无用户，可直接注册首个管理员账户（注册后该入口关闭）。之后用该账户登录管理文章。
+
+阅读站导航栏的「管理后台」入口仅对已登录管理员可见（检测 localStorage 中的 token），普通访客不可见。
+
+### 路由说明
+
+| 路径 | 说明 |
+|------|------|
+| `/` | 阅读站首页（静态托管） |
+| `/admin/login.html` | 管理后台登录/注册 |
+| `/admin/dashboard.html` | 文章管理（需登录） |
+| `POST /api/register` | 注册（仅首个用户） |
+| `POST /api/login` | 登录，返回 JWT |
+| `GET/POST/PUT/DELETE /api/articles` | 文章 CRUD（写操作需登录） |
+
+### 文章管理
+
+在管理后台点击「+ 新建文章」，可：
+- **上传 HTML 文件**：自动识别 meta 标签和正文，填充标题、分类、序号、日期、作者、摘要、正文（解析规则与阅读站一致）
+- 手动编辑各字段后保存
+
+技术栈：FastAPI + SQLAlchemy + SQLite + JWT + bcrypt。

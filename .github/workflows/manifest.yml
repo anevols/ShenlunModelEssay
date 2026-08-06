@@ -1,15 +1,15 @@
 name: Generate Article Manifest
 
-# 当 articles/ 目录下的 .html 文件有变动并推送到 main 时，
-# 自动运行 scripts/generate-manifest.js 生成 articles/manifest.json 并提交回仓库。
+# 当 static-site/articles/ 目录下的 .html 文件有变动并推送到 main 时，
+# 自动运行 static-site/scripts/generate-manifest.js 生成 manifest.json 并提交回仓库。
 # 这样前端首屏可直接 fetch manifest.json，无需调用 GitHub Contents API。
 on:
   push:
     branches: [main]
     paths:
-      - "articles/**"
-      - "scripts/generate-manifest.js"
-      - ".github/workflows/manifest.yml"
+      - "static-site/articles/**"
+      - "static-site/scripts/generate-manifest.js"
+      - "static-site/.github/workflows/manifest.yml"
 
 permissions:
   contents: write
@@ -27,16 +27,17 @@ jobs:
           node-version: "20"
 
       - name: Generate manifest.json
+        working-directory: static-site
         run: node scripts/generate-manifest.js
 
       - name: Commit manifest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet articles/manifest.json; then
+          if git diff --quiet static-site/articles/manifest.json; then
             echo "manifest 无变化，跳过提交"
           else
-            git add articles/manifest.json
+            git add static-site/articles/manifest.json
             git commit -m "chore: 自动更新文章清单 manifest.json [skip ci]"
             git push
           fi
