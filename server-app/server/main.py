@@ -199,8 +199,23 @@ def health():
     return {"status": "ok"}
 
 
-# 托管阅读站静态文件（根路径）
-# 访问 / → index.html，/js/* /css/* /articles/* 等
-# 必须放在所有 API 路由和 /admin 挂载之后，确保 /api/* 与 /admin/* 优先匹配
-WORKSPACE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-app.mount("/", StaticFiles(directory=WORKSPACE_DIR, html=True), name="root")
+# ===== 托管阅读站静态文件（根路径） =====
+# 阅读站为 Vue 3 构建产物（web/dist），使用 history 模式路由。
+# 用 catch-all 路由处理：静态文件存在则返回文件，否则回退 index.html（SPA）。
+# 必须放在所有 API 路由和 /admin 路由之后，确保 /api/* 与 /admin/* 优先匹配。
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web", "dist")
+WEB_INDEX = os.path.join(WEB_DIR, "index.html")
+
+
+@app.get("/{full_path:path}")
+def web_serve(full_path: str):
+    """阅读站静态文件 + Vue SPA history 路由 fallback。"""
+    # 安全：防止路径穿越
+    candidate = os.path.normpath(os.path.join(WEB_DIR, full_path))
+    if full_path and candidate.startswith(WEB_DIR) and os.path.isfile(candidate):
+        return FileResponse(candidate)
+    # 静态资源（assets/*）必须命中文件，否则不回退（避免误把 404 资源当 HTML）
+    if full_path.startswith("assets/"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资源不存在")
+    # 其余路径（含根 /、/article/:slug 等）回退到 index.html
+    return FileResponse(WEB_INDEX)
