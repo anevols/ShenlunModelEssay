@@ -1,11 +1,49 @@
 /**
  * 文章文件列表加载与并发控制
  *
- * - listFiles：GitHub 线上调用 Contents API / 本地解析目录列表
- * - fetchArticleMeta：只下载并解析文章的 meta 信息（标题/分类/序号/日期等），
- *                     不保留正文 contentHtml，避免首屏把所有文章正文都拉进内存
- * - mapWithConcurrency：限制并发数，避免上百篇文章同时 fetch 触发 GitHub API 限流
+ * 三种文章清单获取方式（按优先级）：
+ * 1. loadManifest：fetch articles/manifest.json（推荐，最快）
+ *    —— 本地预览和 GitHub Pages 都可用，一次请求拿到全部文章 meta。
+ *    —— manifest.json 由 scripts/generate-manifest.js 生成（本地手动跑 / GitHub Actions 自动跑）。
+ * 2. listFiles + fetchArticleMeta：调 GitHub Contents API 列文件，再并发抓 meta（回退方案）
+ *    —— 当 manifest.json 不存在时使用，避免破坏旧仓库。
+ *
+ * 性能：方案 1 首屏只需一次 fetch；方案 2 仍受 GitHub API 限流影响。
  */
+
+/**
+ * 尝试加载 manifest.json。成功返回文章 meta 数组，失败返回 null（调用方回退到 listFiles）。
+ */
+async function loadManifest(articlesPath) {
+  try {
+    const res = await fetch(`${articlesPath}/manifest.json`, { cache: "no-cache" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    // 规范化字段：补全 download_url / url，正文相关字段留空（loadArticle 时按需加载）
+    const base = `${articlesPath}/`;
+    return data.map((m) => ({
+      name: m.file,
+      slug: m.slug || (m.file ? m.file.replace(/\.html$/, "") : ""),
+      fileName: m.file,
+      url: base + encodeURIComponent(m.file),
+      download_url: base + encodeURIComponent(m.file),
+      title: m.title || m.file || "",
+      category: m.category || "申论",
+      order: parseInt(m.order || "999", 10),
+      date: m.date || "",
+      author: m.author || "",
+      description: m.description || "",
+      // 正文相关字段留空，loadArticle 时再填充
+      contentHtml: "",
+      titleHtml: "",
+      metaHtml: "",
+      scripts: [],
+    }));
+  } catch (e) {
+    return null;
+  }
+}
 
 async function listFiles(owner, repo, path) {
   // GitHub 线上：调用 Contents API
@@ -56,8 +94,7 @@ async function mapWithConcurrency(items, worker, limit) {
 
 /**
  * 只获取文章的 meta 信息（用于首屏目录树），不保留正文。
- * 解析得到 meta 字段后丢弃 contentHtml/titleHtml/metaHtml/scripts，
- * 留待 loadArticle 时按需加载正文再走完整 parseArticle。
+ * 仅在 manifest.json 不可用（回退方案）时使用。
  */
 async function fetchArticleMeta(file) {
   const res = await fetch(file.download_url);

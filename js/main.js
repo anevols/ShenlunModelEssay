@@ -13,10 +13,11 @@
  *   app.js              启动入口（调用 init）
  *
  * 性能设计：
- * - 首屏只抓取每篇文章的 meta（标题/分类/序号/日期），立即渲染目录树；
- *   不预下载正文，避免文章数量增多时首屏白屏与内存暴涨。
+ * - 首屏优先 fetch articles/manifest.json（一次请求拿全部文章 meta，本地/GitHub Pages 通用）；
+ *   manifest 不存在时回退到 GitHub Contents API + 并发抓 meta。
+ * - 首屏只取 meta 不下载正文，立即渲染目录树，避免文章数量增多时首屏白屏与内存暴涨。
  * - 点击文章 / hash 路由时才按需加载正文，并使用 LRU 缓存限制常驻内存的文章正文数量。
- * - 抓取 meta 时用并发限制（CONFIG.metaConcurrency），避免触发 GitHub API 限流。
+ * - manifest.json 由 scripts/generate-manifest.js 生成（本地手动跑 / GitHub Actions 自动跑）。
  *
  * 新增文章：把 .html 放进 articles/ 即可，无需改任何代码。
  */
@@ -69,18 +70,22 @@ async function init() {
   bindBreadcrumb();
   window.addEventListener("hashchange", route);
   try {
-    const files = await listFiles(owner, repo, CONFIG.articlesPath);
-    if (files.length === 0) { ARTICLES = []; renderSidebar(); route(); return; }
-    // 首屏只抓 meta（不保留正文），用并发限制避免 GitHub API 限流
-    const metas = await mapWithConcurrency(files, async (f) => {
-      try { return await fetchArticleMeta(f); }
-      catch (e) {
-        return { slug: f.name.replace(/\.html$/, ""), fileName: f.name, url: f.download_url,
-          title: f.name.replace(/\.html$/, ""), category: "申论", order: 999,
-          date: "", description: "", author: "",
-          contentHtml: "", titleHtml: "", metaHtml: "", scripts: [] };
-      }
-    }, CONFIG.metaConcurrency);
+    // 优先用 manifest.json（一次 fetch 拿全部 meta，本地/GitHub Pages 都可用，无限流风险）
+    let metas = await loadManifest(CONFIG.articlesPath);
+    if (!metas) {
+      // 回退：manifest 不存在时，调 Contents API 列文件 + 并发抓 meta
+      const files = await listFiles(owner, repo, CONFIG.articlesPath);
+      if (files.length === 0) { ARTICLES = []; renderSidebar(); route(); return; }
+      metas = await mapWithConcurrency(files, async (f) => {
+        try { return await fetchArticleMeta(f); }
+        catch (e) {
+          return { slug: f.name.replace(/\.html$/, ""), fileName: f.name, url: f.download_url,
+            title: f.name.replace(/\.html$/, ""), category: "申论", order: 999,
+            date: "", description: "", author: "",
+            contentHtml: "", titleHtml: "", metaHtml: "", scripts: [] };
+        }
+      }, CONFIG.metaConcurrency);
+    }
     ARTICLES = metas.filter(Boolean).sort((a, b) => {
       if (a.category !== b.category) return a.category.localeCompare(b.category, "zh");
       return a.order - b.order;

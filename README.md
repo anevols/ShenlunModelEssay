@@ -38,7 +38,7 @@ cd /workspace
 python3 -m http.server 8000
 ```
 
-浏览器打开 http://127.0.0.1:8000/ 。Python 的 `http.server` 默认允许目录浏览，`main.js` 可正常读取 `articles/` 列表。
+浏览器打开 http://127.0.0.1:8000/ 。首屏会优先读取 `articles/manifest.json`（见下文「文章清单 manifest」），无需目录浏览也能工作；若 manifest 不存在，才会回退到读取 `articles/` 目录列表。
 
 ### 方式二：Nginx
 
@@ -71,11 +71,37 @@ server {
 nginx -t && nginx -s reload
 ```
 
-> 说明：前端脚本 [js/main.js](js/main.js) 在非 GitHub Pages 环境下会 `fetch('articles/')` 并解析返回的目录列表 HTML 来发现文章文件。开启 `autoindex on` 后 Nginx 会返回该目录列表，脚本即可正常工作。
+> 说明：前端脚本 [js/main.js](js/main.js) 首屏优先 `fetch('articles/manifest.json')` 拿到全部文章 meta；若 manifest 不存在，才回退到 `fetch('articles/')` 解析目录列表 HTML 来发现文章文件。开启 `autoindex on` 后 Nginx 会返回该目录列表，作为回退方案可正常工作。
+
+## 文章清单 manifest（首屏加速，推荐）
+
+`articles/manifest.json` 是一份预先提取好的文章 meta 清单（标题/分类/序号/日期/作者/摘要），前端首屏只需一次 `fetch` 即可拿到全部文章信息，无需调用 GitHub Contents API、无需目录浏览、无需逐篇抓取 meta，加载最快且不受 API 限流影响。
+
+### 生成方式
+
+**方式一：本地手动生成**
+
+添加或修改文章后运行一次：
+
+```bash
+node scripts/generate-manifest.js
+```
+
+会扫描 `articles/` 下所有 `.html`（跳过 `_` 开头的模板），提取 meta 写入 `articles/manifest.json`。
+
+**方式二：GitHub Actions 自动生成**
+
+仓库已配置 [.github/workflows/manifest.yml](.github/workflows/manifest.yml)：当 `articles/` 下的文件有变动并推送到 `main` 时，会自动运行上面的脚本生成 `manifest.json` 并提交回仓库。你只管往 `articles/` 丢 HTML，清单自动更新。
+
+### 工作机制
+
+- 前端 [js/file-loader.js](js/file-loader.js) 的 `loadManifest` 优先 `fetch articles/manifest.json`，成功则直接构建目录树。
+- 失败/不存在时回退到旧的 `listFiles` + `fetchArticleMeta` 逻辑（GitHub Contents API 或本地目录浏览），保持向后兼容。
+- 正文始终按需加载（点击/路由时才 `fetch` 单篇 HTML），并使用 LRU 缓存限制常驻内存的正文数量。
 
 ## 部署到 GitHub Pages
 
-GitHub Pages 原生支持静态站点托管，无需额外配置目录浏览——线上环境会通过 GitHub Contents API 自动发现文章。
+GitHub Pages 原生支持静态站点托管。首屏优先读取 `articles/manifest.json`（由 GitHub Actions 自动生成并提交），无需目录浏览、无需调用 GitHub Contents API；若 manifest 缺失会自动回退到 Contents API。
 
 ### 步骤
 

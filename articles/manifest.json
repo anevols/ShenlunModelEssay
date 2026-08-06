@@ -1,0 +1,22 @@
+[
+  {
+    "slug": "digital-china",
+    "file": "digital-china.html",
+    "title": "以数赋能 乘势而上 谱写数字中国建设新篇章",
+    "category": "数字中国",
+    "order": 1,
+    "date": "2024-06-15",
+    "author": "范文",
+    "description": "数字经济是高质量发展的新引擎。文章从基础设施、产业融合、治理能力、安全底线四个维度提出数字中国建设的对策建议。"
+  },
+  {
+    "slug": "revitalization-industry-culture",
+    "file": "revitalization-industry-culture.html",
+    "title": "以产业筑基 以文化铸魂 绘就乡村振兴新画卷",
+    "category": "乡村振兴",
+    "order": 1,
+    "date": "2024-04-08",
+    "author": "范文",
+    "description": "产业振兴是乡村振兴的物质基础，文化振兴是乡村振兴的精神内核，文章从辩证关系、双轮驱动、人才治理三个层面提出产文融合的对策。"
+  }
+]
