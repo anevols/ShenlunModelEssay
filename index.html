@@ -26,6 +26,7 @@
       <nav class="navbar-actions">
         <a href="https://github.com/" target="_blank" rel="noopener" class="nav-link">GitHub</a>
       </nav>
+      <a href="/admin/login.html" class="nav-link nav-link-fixed" id="admin-link">登录</a>
 
       <button class="sidebar-toggle" id="sidebar-toggle" aria-label="切换目录">
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
@@ -74,5 +75,16 @@
   <script src="js/router.js"></script>
   <script src="js/ui-bindings.js"></script>
   <script src="js/app.js"></script>
+  <!-- 导航栏登录/管理后台入口（按登录状态切换） -->
+  <script>
+    (function () {
+      var link = document.getElementById('admin-link');
+      if (!link) return;
+      if (localStorage.getItem('token')) {
+        link.textContent = '管理后台';
+        link.href = '/admin/dashboard.html';
+      }
+    })();
+  </script>
 </body>
 </html>
