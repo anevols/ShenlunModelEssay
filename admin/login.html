@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 · 登录</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1 class="auth-title">申论阅读站 · 管理后台</h1>
+
+      <!-- 登录/注册切换 -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">登录</button>
+        <button class="auth-tab" data-tab="register">注册</button>
+      </div>
+
+      <!-- 登录表单 -->
+      <form id="login-form" class="auth-form">
+        <div class="form-group">
+          <label for="login-username">用户名</label>
+          <input type="text" id="login-username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="login-password">密码</label>
+          <input type="password" id="login-password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-primary">登录</button>
+      </form>
+
+      <!-- 注册表单 -->
+      <form id="register-form" class="auth-form" style="display:none">
+        <div class="form-group">
+          <label for="reg-username">用户名</label>
+          <input type="text" id="reg-username" required minlength="2" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="reg-password">密码（至少6位）</label>
+          <input type="password" id="reg-password" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn-primary">注册</button>
+        <p class="auth-hint">注册功能仅在首次设置时可用（数据库无用户时）。</p>
+      </form>
+
+      <div id="auth-message" class="auth-message"></div>
+    </div>
+  </div>
+
+  <script>
+    // API 基址：同源部署时留空（FastAPI 同时托管前端和API）
+    const API_BASE = '';
+
+    // 已登录则跳转后台
+    if (localStorage.getItem('token')) {
+      window.location.href = 'dashboard.html';
+    }
+
+    // 切换登录/注册
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        document.getElementById('login-form').style.display = target === 'login' ? '' : 'none';
+        document.getElementById('register-form').style.display = target === 'register' ? '' : 'none';
+        document.getElementById('auth-message').textContent = '';
+      });
+    });
+
+    function showMsg(msg, isError) {
+      const el = document.getElementById('auth-message');
+      el.textContent = msg;
+      el.className = 'auth-message' + (isError ? ' error' : ' success');
+    }
+
+    // 登录
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      try {
+        const res = await fetch(`${API_BASE}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '登录失败');
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('username', data.username);
+        showMsg('登录成功，正在跳转...', false);
+        setTimeout(() => window.location.href = 'dashboard.html', 500);
+      } catch (err) {
+        showMsg(err.message, true);
+      }
+    });
+
+    // 注册
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      try {
+        const res = await fetch(`${API_BASE}/api/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '注册失败');
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('username', data.username);
+        showMsg('注册成功，正在跳转...', false);
+        setTimeout(() => window.location.href = 'dashboard.html', 500);
+      } catch (err) {
+        showMsg(err.message, true);
+      }
+    });
+  </script>
+</body>
+</html>
