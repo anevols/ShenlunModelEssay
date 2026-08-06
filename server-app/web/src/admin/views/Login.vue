@@ -1,18 +1,22 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { api, setAuth, getToken } from '../auth.js'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { api, setAuth, getToken, getIsAdmin } from '../auth.js'
 
 const router = useRouter()
+const route = useRoute()
 
-// 已登录则跳转仪表板
+// 已登录且是管理员则跳转仪表板
 onMounted(() => {
-  if (getToken()) router.replace({ name: 'dashboard' })
+  if (getToken() && getIsAdmin()) router.replace({ name: 'dashboard' })
 })
 
 const activeTab = ref('login') // login | register
 const message = ref('') // {text, type}
 const loading = ref(false)
+
+// 来自守卫的「无权限」提示，或登录后发现是普通用户
+const forbidden = computed(() => route.query.forbidden === '1')
 
 // 登录表单
 const loginForm = ref({ username: '', password: '' })
@@ -29,9 +33,14 @@ async function handleLogin() {
   message.value = {}
   try {
     const data = await api.login(loginForm.value.username.trim(), loginForm.value.password)
-    setAuth(data.access_token, data.username)
-    showMsg('登录成功，正在跳转...', 'success')
-    setTimeout(() => router.push({ name: 'dashboard' }), 500)
+    setAuth(data.access_token, data.username, data.is_admin)
+    if (data.is_admin) {
+      showMsg('登录成功，正在跳转...', 'success')
+      setTimeout(() => router.push({ name: 'dashboard' }), 500)
+    } else {
+      // 普通用户：不跳转，提示无管理后台权限
+      showMsg('登录成功，但您是普通用户，无管理后台访问权限。', 'error')
+    }
   } catch (err) {
     showMsg(err.message, 'error')
   } finally {
@@ -45,9 +54,14 @@ async function handleRegister() {
   message.value = {}
   try {
     const data = await api.register(regForm.value.username.trim(), regForm.value.password)
-    setAuth(data.access_token, data.username)
-    showMsg('注册成功，正在跳转...', 'success')
-    setTimeout(() => router.push({ name: 'dashboard' }), 500)
+    setAuth(data.access_token, data.username, data.is_admin)
+    if (data.is_admin) {
+      showMsg('注册成功（管理员），正在跳转...', 'success')
+      setTimeout(() => router.push({ name: 'dashboard' }), 500)
+    } else {
+      // 普通用户：不跳转，提示
+      showMsg('注册成功（普通用户），无管理后台访问权限，可前往阅读站。', 'error')
+    }
   } catch (err) {
     showMsg(err.message, 'error')
   } finally {
@@ -73,6 +87,11 @@ async function handleRegister() {
       <div class="auth-card">
         <h1 class="auth-title">管理后台</h1>
         <p class="auth-subtitle">登录以管理文章</p>
+
+        <!-- 无权限提示 -->
+        <div v-if="forbidden" class="auth-message error">
+          您是普通用户，无管理后台访问权限。<a href="/">返回阅读站</a>
+        </div>
 
         <!-- 登录/注册切换 -->
         <div class="auth-tabs">
@@ -104,7 +123,7 @@ async function handleRegister() {
             <input id="reg-password" v-model="regForm.password" type="password" required minlength="6" autocomplete="new-password">
           </div>
           <button type="submit" class="btn-primary" :disabled="loading">注册</button>
-          <p class="auth-hint">注册功能仅在首次设置时可用（数据库无用户时）。</p>
+          <p class="auth-hint">首个注册的用户自动成为管理员，后续注册为普通用户（仅可登录阅读站）。</p>
         </form>
 
         <div class="auth-message" :class="message.type">{{ message.text }}</div>

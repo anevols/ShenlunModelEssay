@@ -8,7 +8,10 @@
  * - 启动时从 API 加载文章列表 meta（不含正文），provide 给子组件
  * - 搜索框过滤侧边栏
  * - 移动端侧边栏开关
- * - 管理后台入口（仅登录后显示）
+ * - 导航栏右侧入口（根据登录状态/是否管理员区分显示）：
+ *   - 未登录 → 「登录」
+ *   - 普通用户 → 用户名 + 退出
+ *   - 管理员 → 用户名 + 「管理后台」+ 退出
  */
 import { ref, provide, onMounted } from 'vue'
 import { api } from './api.js'
@@ -19,7 +22,9 @@ const loading = ref(true)
 const error = ref('')
 const searchQuery = ref('')
 const sidebarOpen = ref(false)
-const isLoggedIn = ref(false)
+// 登录状态：null=未登录，false=普通用户，true=管理员
+const isAdmin = ref(null)
+const currentUsername = ref('')
 
 // 文章列表 provide 给 ArticleView（用于上下篇导航）
 provide('articles', articles)
@@ -49,7 +54,21 @@ function closeSidebar() {
 }
 
 function refreshLoginState() {
-  isLoggedIn.value = !!localStorage.getItem('token')
+  const token = localStorage.getItem('token')
+  if (!token) {
+    isAdmin.value = null
+    currentUsername.value = ''
+    return
+  }
+  currentUsername.value = localStorage.getItem('username') || ''
+  isAdmin.value = localStorage.getItem('is_admin') === '1'
+}
+
+function logout() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('username')
+  localStorage.removeItem('is_admin')
+  refreshLoginState()
 }
 
 onMounted(() => {
@@ -78,9 +97,18 @@ onMounted(() => {
       <nav class="navbar-actions">
         <a href="https://github.com/" target="_blank" rel="noopener" class="nav-link">GitHub</a>
       </nav>
-      <!-- 未登录显示「登录」，已登录显示「管理后台」 -->
-      <a v-if="!isLoggedIn" href="/admin/" class="nav-link nav-link-fixed">登录</a>
-      <a v-else href="/admin/dashboard" class="nav-link nav-link-fixed">管理后台</a>
+
+      <!-- 右侧固定区：根据登录状态显示 -->
+      <!-- 未登录 → 登录入口 -->
+      <a v-if="isAdmin === null" href="/admin/" class="nav-link nav-link-fixed">登录</a>
+      <!-- 管理员 → 管理后台入口（普通用户不显示） -->
+      <a v-else-if="isAdmin" href="/admin/dashboard" class="nav-link nav-link-fixed">管理后台</a>
+
+      <!-- 已登录显示用户名 + 退出 -->
+      <template v-if="isAdmin !== null">
+        <span class="nav-link nav-link-user">{{ currentUsername }}</span>
+        <button class="nav-link nav-link-fixed nav-logout" @click="logout">退出</button>
+      </template>
 
       <button class="sidebar-toggle" aria-label="切换目录" @click="toggleSidebar">
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>

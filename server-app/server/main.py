@@ -34,7 +34,7 @@ from schemas import (
     UserCreate, UserLogin, TokenResponse,
     ArticleCreate, ArticleUpdate, ArticleResponse, ArticleListItem,
 )
-from auth import hash_password, verify_password, create_access_token, get_current_user
+from auth import hash_password, verify_password, create_access_token, get_current_user, get_admin_user
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -95,24 +95,23 @@ def generate_slug(title: str) -> str:
 
 @app.post("/api/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
-    """注册管理员账户。若数据库中已有用户，则需要登录后才能注册新用户。"""
-    # 若已有用户注册，则需登录才能注册新用户（防止开放注册）
-    user_count = db.query(User).count()
-    if user_count > 0:
-        # 这里简化处理：首个用户可直接注册，后续注册需要认证
-        # 实际可改为需要 admin token 才能注册
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="已有管理员账户，请联系管理员添加新用户")
-
+    """注册用户。首个用户自动成为管理员，后续注册的为普通用户。"""
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
 
-    user = User(username=payload.username, password_hash=hash_password(payload.password))
+    # 首个用户自动成为管理员，后续注册的为普通用户
+    is_first = db.query(User).count() == 0
+    user = User(
+        username=payload.username,
+        password_hash=hash_password(payload.password),
+        is_admin=is_first,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
 
     token = create_access_token({"sub": user.username})
-    return TokenResponse(access_token=token, username=user.username)
+    return TokenResponse(access_token=token, username=user.username, is_admin=user.is_admin)
 
 
 @app.post("/api/login", response_model=TokenResponse)
@@ -123,13 +122,13 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
     token = create_access_token({"sub": user.username})
-    return TokenResponse(access_token=token, username=user.username)
+    return TokenResponse(access_token=token, username=user.username, is_admin=user.is_admin)
 
 
 @app.get("/api/me")
 def me(current_user: User = Depends(get_current_user)):
     """获取当前登录用户信息。"""
-    return {"id": current_user.id, "username": current_user.username}
+    return {"id": current_user.id, "username": current_user.username, "is_admin": current_user.is_admin}
 
 
 # ===== 文章路由 =====
@@ -151,8 +150,8 @@ def get_article(slug: str, db: Session = Depends(get_db)):
 
 
 @app.post("/api/articles", response_model=ArticleResponse, status_code=status.HTTP_201_CREATED)
-def create_article(payload: ArticleCreate, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    """创建文章（需登录）。"""
+def create_article(payload: ArticleCreate, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
+    """创建文章（需管理员）。"""
     slug = payload.slug or generate_slug(payload.title)
     if db.query(Article).filter(Article.slug == slug).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="slug 已存在")
@@ -174,8 +173,8 @@ def create_article(payload: ArticleCreate, db: Session = Depends(get_db), _: Use
 
 
 @app.put("/api/articles/{slug}", response_model=ArticleResponse)
-def update_article(slug: str, payload: ArticleUpdate, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    """更新文章（需登录）。只更新传入的字段。"""
+def update_article(slug: str, payload: ArticleUpdate, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
+    """更新文章（需管理员）。只更新传入的字段。"""
     article = db.query(Article).filter(Article.slug == slug).first()
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文章不存在")
@@ -190,8 +189,8 @@ def update_article(slug: str, payload: ArticleUpdate, db: Session = Depends(get_
 
 
 @app.delete("/api/articles/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_article(slug: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    """删除文章（需登录）。"""
+def delete_article(slug: str, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
+    """删除文章（需管理员）。"""
     article = db.query(Article).filter(Article.slug == slug).first()
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文章不存在")

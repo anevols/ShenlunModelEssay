@@ -67,6 +67,12 @@ a:hover { color: var(--accent-hover); }
 .nav-link:hover { color: var(--text); background: var(--bg-soft); }
 /* 登录/管理后台入口：始终显示，移动端靠右 */
 .nav-link-fixed { flex-shrink: 0; }
+/* 已登录用户名 */
+.nav-link-user { color: var(--text); font-weight: 500; cursor: default; }
+.nav-link-user:hover { background: transparent; color: var(--text); }
+/* 退出按钮 */
+.nav-logout { background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; }
+.nav-logout:hover { color: #b91c1c; border-color: #b91c1c; background: transparent; }
 .sidebar-toggle { display: none; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 6px; }
 .sidebar-toggle:hover { background: var(--bg-soft); color: var(--text); }
 
