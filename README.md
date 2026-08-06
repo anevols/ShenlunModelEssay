@@ -79,19 +79,9 @@ nginx -t && nginx -s reload
 
 ### 生成方式
 
-**方式一：浏览器生成（无需 Node 环境）**
+**方式一：本地手动生成**
 
-打开本仓库根目录的 [generate-manifest.html](generate-manifest.html)（通过本地服务器访问，如 http://127.0.0.1:8000/generate-manifest.html ）：
-
-1. 点击「开始扫描并生成」按钮，页面会自动扫描 `articles/` 下所有 HTML 并提取 meta。
-2. 生成完成后点击「下载 manifest.json」，把下载的文件放到 `articles/` 目录覆盖旧文件。
-3. 刷新站点首页即可。
-
-> 浏览器生成需要本地服务器开启目录浏览（Nginx 需 `autoindex on`，Python `http.server` 默认支持），用于列出 `articles/` 下的文件。生成 manifest 后，站点首屏读取 manifest 不再依赖目录浏览。
-
-**方式二：Node 脚本生成**
-
-有 Node 环境时，添加或修改文章后运行一次：
+添加或修改文章后运行一次：
 
 ```bash
 node scripts/generate-manifest.js
@@ -99,7 +89,7 @@ node scripts/generate-manifest.js
 
 会扫描 `articles/` 下所有 `.html`（跳过 `_` 开头的模板），提取 meta 写入 `articles/manifest.json`。
 
-**方式三：GitHub Actions 自动生成**
+**方式二：GitHub Actions 自动生成**
 
 仓库已配置 [.github/workflows/manifest.yml](.github/workflows/manifest.yml)：当 `articles/` 下的文件有变动并推送到 `main` 时，会自动运行上面的脚本生成 `manifest.json` 并提交回仓库。你只管往 `articles/` 丢 HTML，清单自动更新。
 
