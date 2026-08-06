@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阅读空间</title>
+  <meta name="description" content="一个基于 GitHub Pages 的文章阅读站点">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1 class="site-title">阅读空间</h1>
+      <p class="site-subtitle">在 <code>articles/</code> 目录下添加 HTML 文件即可发布新文章</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="status" class="status" role="status" aria-live="polite">正在加载文章列表…</div>
+    <section id="articles" class="article-grid" aria-label="文章列表"></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>由 GitHub Pages 提供托管 · 文章自动发现</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
