@@ -180,3 +180,10 @@ def delete_article(slug: str, db: Session = Depends(get_db), _: User = Depends(g
 def health():
     """健康检查。"""
     return {"status": "ok"}
+
+
+# 托管阅读站静态文件（根路径）
+# 访问 / → index.html，/js/* /css/* /articles/* 等
+# 必须放在所有 API 路由和 /admin 挂载之后，确保 /api/* 与 /admin/* 优先匹配
+WORKSPACE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app.mount("/", StaticFiles(directory=WORKSPACE_DIR, html=True), name="root")
