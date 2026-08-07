@@ -6,4 +6,4 @@ export {
   setAuth,
   clearAuth,
   api,
-} from '../auth/auth.js'
+} from '../shared/auth.js'

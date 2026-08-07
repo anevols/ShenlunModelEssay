@@ -8,7 +8,7 @@
  * - 支持 ?forbidden=1 参数：来自后台守卫的「无权限」提示
  */
 import { ref, onMounted, computed } from 'vue'
-import { api, setAuth, getToken, getIsAdmin } from './auth.js'
+import { api, setAuth, getToken, getIsAdmin } from '../shared/auth.js'
 
 const activeTab = ref('login') // login | register
 const message = ref('') // {text, type}

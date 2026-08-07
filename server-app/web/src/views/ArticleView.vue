@@ -11,7 +11,7 @@
  */
 import { ref, computed, inject, watch, nextTick, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { api } from '../api.js'
+import { api } from '../shared/auth.js'
 
 const route = useRoute()
 const router = useRouter()

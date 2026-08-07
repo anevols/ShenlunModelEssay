@@ -14,7 +14,7 @@
  *   - 管理员 → 用户名 + 「管理后台」+ 退出
  */
 import { ref, provide, onMounted } from 'vue'
-import { api } from './api.js'
+import { api, getToken, getUsername, getIsAdmin, clearAuth } from './shared/auth.js'
 import Sidebar from './components/Sidebar.vue'
 
 const articles = ref([])
@@ -54,20 +54,17 @@ function closeSidebar() {
 }
 
 function refreshLoginState() {
-  const token = localStorage.getItem('token')
-  if (!token) {
+  if (!getToken()) {
     isAdmin.value = null
     currentUsername.value = ''
     return
   }
-  currentUsername.value = localStorage.getItem('username') || ''
-  isAdmin.value = localStorage.getItem('is_admin') === '1'
+  currentUsername.value = getUsername() || ''
+  isAdmin.value = getIsAdmin()
 }
 
 function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('username')
-  localStorage.removeItem('is_admin')
+  clearAuth()
   refreshLoginState()
 }
 
