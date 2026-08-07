@@ -22,7 +22,9 @@ const articles = ref([])
 const loading = ref(true)
 const error = ref('')
 const searchQuery = ref('')
-const sidebarOpen = ref(false)
+// 侧边栏收起状态：true=收起，false=展开
+// 桌面端默认展开（false），移动端默认收起（true）
+const sidebarCollapsed = ref(window.innerWidth <= 900)
 // 登录状态：null=未登录，false=普通用户，true=管理员
 const isAdmin = ref(null)
 const currentUsername = ref('')
@@ -49,11 +51,12 @@ async function loadArticles() {
 }
 
 function toggleSidebar() {
-  sidebarOpen.value = !sidebarOpen.value
+  sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
 function closeSidebar() {
-  sidebarOpen.value = false
+  // 仅移动端点击文章/遮罩后收起侧边栏（桌面端保持当前状态）
+  if (window.innerWidth <= 900) sidebarCollapsed.value = true
 }
 
 function refreshLoginState() {
@@ -82,6 +85,10 @@ onMounted(() => {
 <template>
   <header class="navbar">
     <div class="navbar-inner">
+      <button class="sidebar-toggle" aria-label="切换目录" @click="toggleSidebar">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+      </button>
+
       <router-link to="/" class="brand">
         <span class="brand-logo">◆</span>
         <span class="brand-name">申论</span>
@@ -107,10 +114,6 @@ onMounted(() => {
         <span class="nav-link nav-link-user">{{ currentUsername }}</span>
         <button class="nav-link nav-link-fixed nav-logout" @click="logout">退出</button>
       </template>
-
-      <button class="sidebar-toggle" aria-label="切换目录" @click="toggleSidebar">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
-      </button>
     </div>
   </header>
 
@@ -120,12 +123,12 @@ onMounted(() => {
       :loading="loading"
       :error="error"
       :search-query="searchQuery"
-      :sidebar-open="sidebarOpen"
+      :class="{ collapsed: sidebarCollapsed }"
       @close="closeSidebar"
     />
-    <div class="sidebar-mask" :class="{ open: sidebarOpen }" @click="closeSidebar"></div>
+    <div class="sidebar-mask" :class="{ open: !sidebarCollapsed }" @click="closeSidebar"></div>
 
-    <main class="main">
+    <main class="main" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
       <router-view />
     </main>
   </div>

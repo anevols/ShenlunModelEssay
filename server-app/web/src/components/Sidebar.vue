@@ -17,7 +17,6 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
   searchQuery: { type: String, default: '' },
-  sidebarOpen: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close'])
@@ -62,7 +61,7 @@ function onItemClick() {
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ open: sidebarOpen }" aria-label="文章目录">
+  <aside class="sidebar" aria-label="文章目录">
     <nav class="sidebar-nav" id="sidebar-nav">
       <div v-if="loading" class="sidebar-status">加载中…</div>
       <div v-else-if="error" class="sidebar-status error">{{ error }}</div>

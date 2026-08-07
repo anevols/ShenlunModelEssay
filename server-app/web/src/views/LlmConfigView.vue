@@ -15,7 +15,6 @@ const message = ref({}) // {text, type}
 
 // 表单数据（api_key 留空表示保留原值）
 const form = reactive({
-  provider: 'openai',
   api_base: 'https://api.openai.com/v1',
   api_key: '',
   model: 'gpt-4o-mini',
@@ -33,7 +32,6 @@ async function loadConfig() {
   message.value = {}
   try {
     const data = await api.getLlmConfig()
-    form.provider = data.provider
     form.api_base = data.api_base
     form.api_key = '' // 不回显明文，留空表示保留
     form.model = data.model
@@ -54,7 +52,6 @@ async function handleSave() {
   message.value = {}
   // 仅在 api_key 非空时才提交该字段（留空 = 保留原值）
   const payload = {
-    provider: form.provider,
     api_base: form.api_base,
     model: form.model,
     temperature: Number(form.temperature),
@@ -87,16 +84,6 @@ onMounted(loadConfig)
     <div v-if="loading" class="table-loading">加载中...</div>
 
     <form v-else class="article-form" style="max-width: 640px" @submit.prevent="handleSave">
-      <!-- 提供商 -->
-      <div class="form-group">
-        <label for="f-provider">提供商（provider）</label>
-        <select id="f-provider" v-model="form.provider">
-          <option value="openai">openai</option>
-          <option value="claude">claude</option>
-          <option value="local">local</option>
-        </select>
-      </div>
-
       <!-- API 地址 -->
       <div class="form-group">
         <label for="f-api-base">API 地址（api_base）</label>

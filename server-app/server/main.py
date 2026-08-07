@@ -223,7 +223,6 @@ def get_llm_config(_: User = Depends(get_admin_user)):
     """读取 LLM 配置（api_key 脱敏返回）。"""
     cfg = load_llm_config()
     return LlmConfigResponse(
-        provider=cfg.provider,
         api_base=cfg.api_base,
         api_key_masked=_mask_api_key(cfg.api_key),
         api_key_set=bool(cfg.api_key),
@@ -246,7 +245,6 @@ def update_llm_config_route(payload: LlmConfigUpdate, db: Session = Depends(get_
     # 传了空串则清空，传了非空串则更新
     cfg = update_llm_config(db, **data)
     return LlmConfigResponse(
-        provider=cfg.provider,
         api_base=cfg.api_base,
         api_key_masked=_mask_api_key(cfg.api_key),
         api_key_set=bool(cfg.api_key),

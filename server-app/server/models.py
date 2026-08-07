@@ -42,14 +42,13 @@ class Article(Base):
 class LlmConfig(Base):
     """范文生成器 LLM 配置（单行配置表，固定 id=1，通过 upsert 更新）。
 
-    明文存储：内网部署场景简化实现；如需对外可后续加密。
-    GET 接口返回时对 api_key 做 mask，仅 PUT 时写入明文。
+    仅保留 OpenAI SDK 必需配置项。明文存储：内网部署场景简化实现；
+    如需对外可后续加密。GET 接口返回时对 api_key 做 mask，仅 PUT 时写入明文。
     """
 
     __tablename__ = "llm_config"
 
     id = Column(Integer, primary_key=True, index=True)
-    provider = Column(String(50), default="openai")  # openai | claude | local
     api_base = Column(String(255), default="https://api.openai.com/v1")
     api_key = Column(String(255), default="")  # 明文存储（内网部署）
     model = Column(String(100), default="gpt-4o-mini")

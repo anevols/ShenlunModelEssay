@@ -20,7 +20,6 @@ CONFIG_ID = 1
 
 # 默认值（首次初始化或回退用）
 _DEFAULTS = dict(
-    provider="openai",
     api_base="https://api.openai.com/v1",
     api_key="",
     model="gpt-4o-mini",
@@ -34,7 +33,6 @@ _DEFAULTS = dict(
 class LlmSettings:
     """LLM 调用参数（不可变，由 load() 返回）。"""
 
-    provider: str
     api_base: str
     api_key: str
     model: str
@@ -49,7 +47,6 @@ _cache: Optional[LlmSettings] = None
 
 def _to_settings(row: LlmConfig) -> LlmSettings:
     return LlmSettings(
-        provider=row.provider or _DEFAULTS["provider"],
         api_base=row.api_base or _DEFAULTS["api_base"],
         api_key=row.api_key or "",
         model=row.model or _DEFAULTS["model"],
