@@ -10,6 +10,7 @@
  */
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { categoryOrder, UNCATEGORIZED } from '../shared/constants.js'
 
 const props = defineProps({
   articles: { type: Array, default: () => [] },
@@ -26,16 +27,16 @@ const collapsedGroups = ref({})
 
 const currentSlug = computed(() => route.params.slug || '')
 
-// 按分类分组
+// 按分类分组（按 Skill 十大板块固定顺序排序，未分类排到最后）
 const groups = computed(() => {
   const map = {}
   for (const a of props.articles) {
-    const cat = a.category || '申论'
+    const cat = a.category || UNCATEGORIZED
     if (!map[cat]) map[cat] = []
     map[cat].push(a)
   }
   return Object.keys(map)
-    .sort((a, b) => a.localeCompare(b, 'zh'))
+    .sort((a, b) => categoryOrder(a) - categoryOrder(b))
     .map((name) => ({ name, items: map[name] }))
 })
 

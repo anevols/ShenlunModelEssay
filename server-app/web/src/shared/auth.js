@@ -57,4 +57,9 @@ export const api = {
   createArticle: (data) => request('/api/articles', { method: 'POST', body: data, auth: true }),
   updateArticle: (slug, data) => request(`/api/articles/${slug}`, { method: 'PUT', body: data, auth: true }),
   deleteArticle: (slug) => request(`/api/articles/${slug}`, { method: 'DELETE', auth: true }),
+  // 十大板块
+  listCategories: () => request('/api/categories'),
+  // LLM 配置（管理员）
+  getLlmConfig: () => request('/api/admin/llm-config', { auth: true }),
+  updateLlmConfig: (data) => request('/api/admin/llm-config', { method: 'PUT', body: data, auth: true }),
 }

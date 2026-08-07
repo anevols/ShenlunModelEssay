@@ -8,11 +8,18 @@
     GET  /api/me        获取当前登录用户信息
 
   文章：
-    GET    /api/articles        文章列表（不含正文）
+    GET    /api/articles        文章列表（不含正文，按板块枚举顺序排序）
     GET    /api/articles/{slug} 文章详情（含正文）
     POST   /api/articles        创建文章（需登录）
     PUT    /api/articles/{slug} 更新文章（需登录）
     DELETE /api/articles/{slug} 删除文章（需登录）
+
+  分类：
+    GET    /api/categories      十大主题板块列表（有序）
+
+  LLM 配置（管理员）：
+    GET    /api/admin/llm-config 读取 LLM 配置（api_key mask）
+    PUT    /api/admin/llm-config 更新 LLM 配置
 
 启动：
     cd server
@@ -21,20 +28,22 @@
 
 import re
 import unicodedata
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db
-from models import User, Article
+from models import User, Article, LlmConfig
 from schemas import (
     UserCreate, UserLogin, TokenResponse,
     ArticleCreate, ArticleUpdate, ArticleResponse, ArticleListItem,
+    LlmConfigUpdate, LlmConfigResponse,
 )
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_admin_user
+from categories import CATEGORIES, category_order
+from generator.config import load as load_llm_config, update_config as update_llm_config
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -115,8 +124,12 @@ def me(current_user: User = Depends(get_current_user)):
 
 @app.get("/api/articles", response_model=List[ArticleListItem])
 def list_articles(db: Session = Depends(get_db)):
-    """获取文章列表（按分类 → 序号排序，不含正文）。"""
-    articles = db.query(Article).order_by(Article.category, Article.order).all()
+    """获取文章列表（按十大板块枚举顺序 → 序号排序，不含正文）。
+
+    数据库 order_by 无法直接按枚举顺序排，故先查全部再 Python 端排序。
+    """
+    articles = db.query(Article).all()
+    articles.sort(key=lambda a: (category_order(a.category), a.order))
     return articles
 
 
@@ -182,6 +195,66 @@ def delete_article(slug: str, db: Session = Depends(get_db), _: User = Depends(g
 def health():
     """健康检查。"""
     return {"status": "ok"}
+
+
+# ===== 分类路由 =====
+
+@app.get("/api/categories")
+def list_categories():
+    """十大主题板块列表（有序，顺序即展示顺序）。"""
+    return {"categories": list(CATEGORIES)}
+
+
+# ===== LLM 配置路由（管理员） =====
+# 范文生成器的 LLM 配置：单行配置表（id=1），可在后台修改。
+# GET 返回时对 api_key 做 mask，仅 PUT 写入明文。
+
+def _mask_api_key(key: str) -> str:
+    """脱敏 api_key：保留前3后4，中间用 **** 替代。空值返回空串。"""
+    if not key:
+        return ""
+    if len(key) <= 8:
+        return "****"
+    return f"{key[:3]}****{key[-4:]}"
+
+
+@app.get("/api/admin/llm-config", response_model=LlmConfigResponse)
+def get_llm_config(_: User = Depends(get_admin_user)):
+    """读取 LLM 配置（api_key 脱敏返回）。"""
+    cfg = load_llm_config()
+    return LlmConfigResponse(
+        provider=cfg.provider,
+        api_base=cfg.api_base,
+        api_key_masked=_mask_api_key(cfg.api_key),
+        api_key_set=bool(cfg.api_key),
+        model=cfg.model,
+        temperature=cfg.temperature,
+        max_tokens=cfg.max_tokens,
+        timeout=cfg.timeout,
+    )
+
+
+@app.put("/api/admin/llm-config", response_model=LlmConfigResponse)
+def update_llm_config_route(payload: LlmConfigUpdate, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
+    """更新 LLM 配置（管理员）。
+
+    api_key 为可选字段：传空串则清空，不传则保留原值（None 时跳过）。
+    其余字段传入即更新。
+    """
+    data = payload.model_dump(exclude_unset=True)
+    # api_key 字段处理：exclude_unset=True 下，未传则不在 data 中（保留原值）
+    # 传了空串则清空，传了非空串则更新
+    cfg = update_llm_config(db, **data)
+    return LlmConfigResponse(
+        provider=cfg.provider,
+        api_base=cfg.api_base,
+        api_key_masked=_mask_api_key(cfg.api_key),
+        api_key_set=bool(cfg.api_key),
+        model=cfg.model,
+        temperature=cfg.temperature,
+        max_tokens=cfg.max_tokens,
+        timeout=cfg.timeout,
+    )
 
 
 # ===== 托管前端静态文件（单 SPA） =====

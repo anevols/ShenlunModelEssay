@@ -73,3 +73,31 @@ class ArticleListItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ===== LLM 配置相关 =====
+class LlmConfigUpdate(BaseModel):
+    """LLM 配置更新请求。
+
+    所有字段可选，仅传入的字段会被更新（exclude_unset）。
+    api_key：传空串则清空，不传则保留原值。
+    """
+    provider: Optional[str] = None
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    timeout: Optional[int] = None
+
+
+class LlmConfigResponse(BaseModel):
+    """LLM 配置响应（api_key 脱敏）。"""
+    provider: str
+    api_base: str
+    api_key_masked: str  # 脱敏后的 api_key（如 sk-****1234）
+    api_key_set: bool    # 是否已设置 api_key
+    model: str
+    temperature: float
+    max_tokens: int
+    timeout: int

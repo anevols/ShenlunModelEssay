@@ -15,6 +15,7 @@
  */
 import { ref, provide, onMounted } from 'vue'
 import { api, getToken, getUsername, getIsAdmin, clearAuth } from '../shared/auth.js'
+import { categoryOrder } from '../shared/constants.js'
 import Sidebar from '../components/Sidebar.vue'
 
 const articles = ref([])
@@ -35,7 +36,9 @@ async function loadArticles() {
   try {
     const data = await api.listArticles()
     articles.value = data.sort((a, b) => {
-      if (a.category !== b.category) return a.category.localeCompare(b.category, 'zh')
+      const ca = categoryOrder(a.category)
+      const cb = categoryOrder(b.category)
+      if (ca !== cb) return ca - cb
       return a.order - b.order
     })
   } catch (e) {

@@ -60,6 +60,14 @@ onMounted(() => {
           </div>
           <div class="sidebar-group">
             <div class="sidebar-group-title">
+              <span class="sidebar-arrow">▾</span>系统配置
+            </div>
+            <div class="sidebar-group-items">
+              <router-link to="/admin/llm-config" class="sidebar-item">LLM 配置</router-link>
+            </div>
+          </div>
+          <div class="sidebar-group">
+            <div class="sidebar-group-title">
               <span class="sidebar-arrow">▾</span>返回
             </div>
             <div class="sidebar-group-items">
