@@ -62,4 +62,8 @@ export const api = {
   // LLM 配置（管理员）
   getLlmConfig: () => request('/api/admin/llm-config', { auth: true }),
   updateLlmConfig: (data) => request('/api/admin/llm-config', { method: 'PUT', body: data, auth: true }),
+  // 范文生成（管理员）
+  generatePreview: (theme) => request('/api/admin/generate/preview', { method: 'POST', body: { theme }, auth: true }),
+  generateSave: (theme) => request('/api/admin/generate/save', { method: 'POST', body: { theme }, auth: true }),
+  generateBatch: (themes) => request('/api/admin/generate/batch', { method: 'POST', body: { themes }, auth: true }),
 }

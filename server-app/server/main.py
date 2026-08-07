@@ -28,10 +28,11 @@
 
 import re
 import unicodedata
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db
@@ -42,8 +43,9 @@ from schemas import (
     LlmConfigUpdate, LlmConfigResponse,
 )
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_admin_user
-from categories import CATEGORIES, category_order
+from categories import CATEGORIES, category_order, is_valid_category
 from generator.config import load as load_llm_config, update_config as update_llm_config
+from generator.pipeline import generate_preview, generate_and_save, generate_batch, GenerateError
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -253,6 +255,86 @@ def update_llm_config_route(payload: LlmConfigUpdate, db: Session = Depends(get_
         max_tokens=cfg.max_tokens,
         timeout=cfg.timeout,
     )
+
+
+# ===== 范文生成路由（管理员） =====
+# AI 生成申论范文：预览（不入库）/ 单篇入库 / 批量入库（按板块轮询）。
+# 前端先预览确认质量，满意后选择「入库」或「批量入库」。
+
+class GeneratePreviewResponse(BaseModel):
+    """生成预览响应（不入库）。"""
+    theme: str
+    title: str
+    category: str
+    description: str
+    content_html: str
+    word_count: int
+
+
+class GenerateSaveResponse(BaseModel):
+    """生成入库响应（含入库后的 article slug）。"""
+    theme: str
+    success: bool
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    error: Optional[str] = None
+
+
+class GenerateRequest(BaseModel):
+    """生成请求：theme 单篇，themes 批量。二选一即可。"""
+    theme: Optional[str] = None
+    themes: Optional[List[str]] = None
+
+
+@app.post("/api/admin/generate/preview", response_model=GeneratePreviewResponse)
+def api_generate_preview(payload: GenerateRequest, _: User = Depends(get_admin_user)):
+    """生成单篇范文预览（不入库）。
+
+    前端用于「试生成」让用户预览效果，满意后再调 /save 入库。
+    """
+    theme = payload.theme
+    if not theme:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="theme 必填")
+    if not is_valid_category(theme):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"非法板块：{theme}")
+    try:
+        result = generate_preview(theme)
+        return result
+    except GenerateError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@app.post("/api/admin/generate/save", response_model=GenerateSaveResponse)
+def api_generate_save(payload: GenerateRequest, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
+    """生成单篇范文并入库。"""
+    theme = payload.theme
+    if not theme:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="theme 必填")
+    if not is_valid_category(theme):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"非法板块：{theme}")
+    try:
+        article = generate_and_save(theme, db)
+        return GenerateSaveResponse(theme=theme, success=True, title=article.title, slug=article.slug)
+    except GenerateError as e:
+        return GenerateSaveResponse(theme=theme, success=False, error=str(e))
+
+
+@app.post("/api/admin/generate/batch", response_model=List[GenerateSaveResponse])
+def api_generate_batch(payload: GenerateRequest, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
+    """批量生成入库（按 themes 顺序逐篇生成，单篇失败不影响其他篇）。
+
+    适合后台「一键生成十大板块各一篇」等场景。
+    """
+    themes = payload.themes or ([payload.theme] if payload.theme else [])
+    if not themes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="themes 或 theme 至少传一个")
+    # 校验全部板块合法性（提前失败，避免部分生成后才发现）
+    for t in themes:
+        if not is_valid_category(t):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"非法板块：{t}")
+
+    results = generate_batch(themes, db)
+    return [GenerateSaveResponse(**r) for r in results]
 
 
 # ===== 托管前端静态文件（单 SPA） =====

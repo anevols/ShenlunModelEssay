@@ -22,6 +22,7 @@ const routes = [
       { path: '', redirect: '/admin/dashboard' },
       { path: 'dashboard', name: 'dashboard', component: () => import('./views/DashboardView.vue') },
       { path: 'llm-config', name: 'llm-config', component: () => import('./views/LlmConfigView.vue') },
+      { path: 'generate', name: 'generate', component: () => import('./views/GenerateView.vue') },
       { path: ':pathMatch(.*)*', redirect: '/admin/dashboard' },
     ],
   },

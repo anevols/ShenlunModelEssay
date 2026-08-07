@@ -27,6 +27,7 @@ const collapsedGroups = reactive({})
 const ROUTE_TITLES = {
   dashboard: '文章管理',
   'llm-config': 'LLM 配置',
+  generate: '范文生成',
 }
 const currentTitle = computed(() => ROUTE_TITLES[route.name] || '管理后台')
 
@@ -94,6 +95,7 @@ onMounted(() => {
             </div>
             <div class="sidebar-group-items" :class="{ collapsed: collapsedGroups['content'] }">
               <router-link to="/admin/dashboard" class="sidebar-item" @click="closeSidebar">文章管理</router-link>
+              <router-link to="/admin/generate" class="sidebar-item" @click="closeSidebar">范文生成</router-link>
             </div>
           </div>
           <div class="sidebar-group">
