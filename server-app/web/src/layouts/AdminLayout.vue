@@ -2,7 +2,7 @@
 /**
  * 管理后台布局
  *
- * - 顶部导航栏：品牌 + 管理菜单 + 用户名 + 退出（不使用账户图标）
+ * - 顶部导航栏：品牌 + 回到阅读站 + 用户名 + 退出（功能导航由左侧 sidebar 承载，避免重复）
  * - 左侧侧边栏：沿用阅读站侧边栏样式，承载后台功能导航，桌面端可收起
  * - 主内容区：content-wrap 布局，顶部 content-topbar（侧边栏开关 + 面包屑），下方 router-view
  * - 根元素加 app-admin 类，作用域内覆盖 CSS 变量
@@ -54,10 +54,8 @@ onMounted(() => {
           <span class="brand-name">申论 · 管理后台</span>
         </router-link>
 
-        <!-- 顶部管理菜单 -->
+        <!-- 右侧固定区：回到阅读站 + 用户名 + 退出（功能导航由左侧 sidebar 承载，避免重复） -->
         <nav class="navbar-actions">
-          <router-link to="/admin/dashboard" class="nav-link">文章管理</router-link>
-          <router-link to="/admin/llm-config" class="nav-link">LLM 配置</router-link>
           <router-link to="/" class="nav-link">回到阅读站</router-link>
         </nav>
 
