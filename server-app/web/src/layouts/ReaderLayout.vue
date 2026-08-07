@@ -141,11 +141,8 @@ onBeforeUnmount(() => {
           aria-haspopup="true"
           @click.stop="toggleUserMenu"
         >
-          <svg v-if="isAdmin === null" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path fill="currentColor" d="M12 12c2.8 0 5-2.2 5-5s-2.2-5-5-5-5 2.2-5 5 2.2 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"></path>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 4.8c1.5 0 2.7 1.2 2.7 2.7S13.5 12.2 12 12.2 9.3 11 9.3 9.5 10.5 6.8 12 6.8zm0 14.4c-2.3 0-4.3-1.2-5.5-3 0-2 3.7-3.1 5.5-3.1s5.5 1.1 5.5 3.1c-1.2 1.8-3.2 3-5.5 3z"></path>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path>
           </svg>
         </button>
         <div v-if="userMenuOpen" class="user-menu-dropdown" role="menu">
