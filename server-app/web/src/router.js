@@ -1,12 +1,37 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getToken, getIsAdmin } from './shared/auth.js'
 
-// 阅读站路由（history 模式）
-// /               → 首页，自动跳转到第一篇文章
-// /article/:slug   → 文章详情
-// 其他路径         → 重定向到首页
+// 单 SPA 统一路由（history 模式）
+// - /login                → 登录/注册页（AuthLayout）
+// - /admin/*              → 管理后台（AdminLayout，需管理员）
+// - /, /article/:slug     → 阅读站（ReaderLayout）
+// - 其他路径              → 重定向到首页
 const routes = [
-  { path: '/', name: 'home', component: () => import('./views/ArticleView.vue') },
-  { path: '/article/:slug', name: 'article', component: () => import('./views/ArticleView.vue'), props: true },
+  {
+    path: '/login',
+    component: () => import('./layouts/AuthLayout.vue'),
+    children: [
+      { path: '', name: 'login', component: () => import('./views/LoginView.vue') },
+    ],
+  },
+  {
+    path: '/admin',
+    component: () => import('./layouts/AdminLayout.vue'),
+    meta: { requiresAdmin: true },
+    children: [
+      { path: '', redirect: '/admin/dashboard' },
+      { path: 'dashboard', name: 'dashboard', component: () => import('./views/DashboardView.vue') },
+      { path: ':pathMatch(.*)*', redirect: '/admin/dashboard' },
+    ],
+  },
+  {
+    path: '/',
+    component: () => import('./layouts/ReaderLayout.vue'),
+    children: [
+      { path: '', name: 'home', component: () => import('./views/ArticleView.vue') },
+      { path: 'article/:slug', name: 'article', component: () => import('./views/ArticleView.vue'), props: true },
+    ],
+  },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
@@ -17,6 +42,19 @@ const router = createRouter({
   scrollBehavior() {
     return { top: 0 }
   },
+})
+
+// 权限守卫：未登录或非管理员访问后台 → 跳转登录页
+router.beforeEach((to) => {
+  if (to.meta.requiresAdmin) {
+    if (!getToken()) {
+      return { name: 'login' }
+    }
+    if (!getIsAdmin()) {
+      // 已登录但非管理员：跳登录页并提示无权限
+      return { name: 'login', query: { forbidden: '1' } }
+    }
+  }
 })
 
 export default router

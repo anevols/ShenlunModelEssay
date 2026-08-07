@@ -1,5 +1,9 @@
-/* ===== 管理后台样式 ===== */
-:root {
+/* ===== 管理后台 / 登录页样式 =====
+ * 单 SPA 下与阅读站 styles.css 共存：
+ * - 变量声明收敛到 .app-admin, .app-auth 作用域，避免覆盖阅读站 :root
+ * - 阅读站未定义的 --bg-card / --danger / --success / --danger-soft 也在此声明
+ */
+.app-admin, .app-auth {
   --bg: #f6f8fa;
   --bg-card: #ffffff;
   --text: #1f2328;
@@ -14,10 +18,13 @@
   --success: #16a34a;
   --radius: 8px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
 }
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; }
 
 /* ===== 顶部导航栏（与阅读站一致） ===== */
 .auth-navbar { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid var(--border); z-index: 100; }
@@ -107,3 +114,25 @@ body { font-family: var(--font-sans); background: var(--bg); color: var(--text);
 .form-group textarea { resize: vertical; }
 .code-textarea { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; line-height: 1.6; }
 .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+
+/* ===== 后台布局覆盖（沿用阅读站 .navbar/.sidebar/.layout/.main 类，但做必要调整） =====
+ * - 后台无移动端侧边栏开关，侧边栏在所有屏幕尺寸下常驻可见
+ * - 后台导航栏背景用卡片白，与阅读站区分
+ * - 后台主内容区始终预留侧边栏宽度
+ */
+.app-admin .admin-navbar { background: var(--bg-card); }
+.app-admin .admin-layout { padding-top: var(--nav-height); min-height: 100vh; }
+.app-admin .admin-sidebar {
+  position: fixed; top: var(--nav-height); bottom: 0; left: 0;
+  width: var(--sidebar-width); background: var(--bg-sidebar, #fbfbfa);
+  border-right: 1px solid var(--border); overflow-y: auto; padding: 24px 0 48px;
+  /* 覆盖阅读站响应式折叠：始终可见 */
+  transform: none !important;
+}
+.app-admin .admin-main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+/* 窄屏下后台主内容区仍保留侧边栏宽度（侧边栏常驻） */
+@media (max-width: 900px) {
+  .app-admin .admin-sidebar { transform: none !important; box-shadow: none; }
+  .app-admin .admin-layout > .main { margin-left: var(--sidebar-width); }
+}

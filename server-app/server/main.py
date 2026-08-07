@@ -51,42 +51,13 @@ app.add_middleware(
 )
 
 # 托管前端静态文件（同源，避免跨域问题）
-# 阅读站、登录页与管理后台为同一个 Vue 项目的多入口构建产物（web/dist）：
-#   - index.html → 阅读站（根路径 /）
-#   - login.html → 登录/注册页（/login，独立应用，开放注册）
-#   - admin.html → 管理后台（/admin/）
-# 共享 assets/ 目录。
+# 单 SPA：阅读站、登录页、管理后台合并为单一 Vue 应用（web/dist/index.html），
+# 通过 Vue Router history 模式路由，由 catch-all 统一回退到 index.html。
 import os
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web", "dist")
 WEB_INDEX = os.path.join(WEB_DIR, "index.html")
-LOGIN_INDEX = os.path.join(WEB_DIR, "login.html")
-ADMIN_INDEX = os.path.join(WEB_DIR, "admin.html")
-
-
-@app.get("/login")
-@app.get("/login/")
-def login_serve():
-    """登录/注册页：独立 Vue 应用，回退 login.html。"""
-    return FileResponse(LOGIN_INDEX)
-
-
-@app.get("/admin")
-def admin_root_redirect():
-    """/admin → /admin/"""
-    return RedirectResponse("/admin/", status_code=307)
-
-
-@app.get("/admin/{full_path:path}")
-def admin_serve(full_path: str):
-    """管理后台：静态文件优先，否则回退 admin.html（Vue SPA history 路由）。"""
-    # 安全：防止路径穿越
-    candidate = os.path.normpath(os.path.join(WEB_DIR, full_path))
-    if full_path and candidate.startswith(WEB_DIR) and os.path.isfile(candidate):
-        return FileResponse(candidate)
-    # 其余路径（含根 /admin/、/admin/dashboard 等）回退到 admin.html
-    return FileResponse(ADMIN_INDEX)
 
 
 def generate_slug(title: str) -> str:
@@ -213,16 +184,19 @@ def health():
     return {"status": "ok"}
 
 
-# ===== 托管阅读站静态文件（根路径） =====
-# 阅读站为 Vue 3 构建产物（web/dist/index.html），使用 history 模式路由。
-# 用 catch-all 路由处理：静态文件存在则返回文件，否则回退 index.html（SPA）。
-# 必须放在所有 API 路由和 /admin 路由之后，确保 /api/* 与 /admin/* 优先匹配。
+# ===== 托管前端静态文件（单 SPA） =====
+# 单 SPA 构建产物（web/dist/index.html），使用 history 模式路由。
+# catch-all 路由：静态文件存在则返回文件，否则回退 index.html（SPA fallback）。
+# 必须放在所有 API 路由之后，确保 /api/* 优先匹配。
 @app.get("/{full_path:path}")
 def web_serve(full_path: str):
-    """阅读站静态文件 + Vue SPA history 路由 fallback。"""
+    """前端静态文件 + Vue SPA history 路由 fallback。"""
+    # 未匹配的 API 路径返回 404，避免被 SPA fallback 误处理为 200
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
     # 安全：防止路径穿越
     candidate = os.path.normpath(os.path.join(WEB_DIR, full_path))
     if full_path and candidate.startswith(WEB_DIR) and os.path.isfile(candidate):
         return FileResponse(candidate)
-    # 其余路径（含根 /、/article/:slug 等）回退到 index.html
+    # 其余路径（含根 /、/article/:slug、/login、/admin/dashboard 等）回退到 index.html
     return FileResponse(WEB_INDEX)

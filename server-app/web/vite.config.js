@@ -1,12 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { resolve } from 'path'
 
-// 申论阅读站 + 登录页 + 管理后台 统一 Vite 配置（多入口）
-// - index.html → 阅读站，部署在根路径 /
-// - login.html → 登录/注册页，部署在 /login
-// - admin.html → 管理后台，部署在 /admin/
-// - 同一份依赖、一次构建，输出到 dist/
+// 申论阅读站 + 登录页 + 管理后台 单 SPA 配置
+// - 单一入口 index.html → /src/main.js
+// - 通过 Vue Router 嵌套路由 + 布局组件分离阅读站/登录页/管理后台
+// - 构建产物 dist/index.html + dist/assets/*，由后端 catch-all 统一托管
 // - dev server proxy: /api → 后端 8000，开发时避免跨域
 export default defineConfig({
   plugins: [vue()],
@@ -23,12 +21,5 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-        login: resolve(__dirname, 'login.html'),
-        admin: resolve(__dirname, 'admin.html'),
-      },
-    },
   },
 })

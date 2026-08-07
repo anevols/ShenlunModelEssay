@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
-import { api } from '../auth.js'
+import { api } from '../../shared/auth.js'
 import { parseHtmlFile } from '../utils.js'
 
 const props = defineProps({
