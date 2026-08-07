@@ -114,24 +114,28 @@
 .code-textarea { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; line-height: 1.6; }
 .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
 
-/* ===== 后台布局覆盖（沿用阅读站 .navbar/.sidebar/.layout/.main 类，但做必要调整） =====
- * - 后台无移动端侧边栏开关，侧边栏在所有屏幕尺寸下常驻可见
- * - 后台导航栏背景用卡片白，与阅读站区分
- * - 后台主内容区始终预留侧边栏宽度
+/* ===== 后台布局覆盖 =====
+ * 后台侧边栏复用阅读站 .sidebar 样式，桌面端可收起/展开，移动端滑入/滑出（带遮罩）。
+ * 不再强制 transform: none !important，让阅读站的响应式规则正常生效。
  */
 .app-admin .admin-navbar { background: var(--bg-card); }
 .app-admin .admin-layout { padding-top: var(--nav-height); min-height: 100vh; }
 .app-admin .admin-sidebar {
-  position: fixed; top: var(--nav-height); bottom: 0; left: 0;
-  width: var(--sidebar-width); background: var(--bg-sidebar, #fbfbfa);
-  border-right: 1px solid var(--border); overflow-y: auto; padding: 24px 0 48px;
-  /* 覆盖阅读站响应式折叠：始终可见 */
-  transform: none !important;
+  background: var(--bg-sidebar, #fbfbfa);
+  z-index: 90;
 }
-.app-admin .admin-main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
 
-/* 窄屏下后台主内容区仍保留侧边栏宽度（侧边栏常驻） */
+/* 后台遮罩：复用阅读站 .sidebar-mask 样式，移动端展开时显示 */
+.app-admin .admin-sidebar-mask { z-index: 80; }
+
+/* 后台导航栏：移动端保留「回到阅读站」入口（阅读站隐藏 navbar-actions 是因为搜索框占空间，后台无搜索框） */
+.app-admin .admin-navbar-actions { display: flex; }
+
+/* 后台主内容区桌面端与阅读站一致：sidebar 展开时预留宽度，收起时不留 */
+
+/* 移动端：后台侧边栏行为与阅读站一致（滑入/滑出 + 遮罩），主内容区全宽 */
 @media (max-width: 900px) {
-  .app-admin .admin-sidebar { transform: none !important; box-shadow: none; }
-  .app-admin .admin-layout > .main { margin-left: var(--sidebar-width); }
+  .app-admin .admin-navbar-actions .nav-link { padding: 6px 8px; font-size: 12px; }
+  .app-admin .admin-navbar .brand-name { font-size: 14px; }
+  .app-admin .admin-navbar .nav-link-user { display: none; }
 }
