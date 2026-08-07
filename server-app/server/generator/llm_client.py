@@ -61,11 +61,19 @@ def generate_essay(theme: str) -> Dict[str, Any]:
     except Exception as e:
         raise LlmError(f"LLM 调用失败：{e}") from e
 
+    # 健壮性：部分供应商对不支持的模型/参数会返回 HTTP 200 但 choices=null
+    if not getattr(resp, "choices", None):
+        model_name = getattr(resp, "model", cfg.model) or cfg.model
+        raise LlmError(
+            f"LLM 返回空响应（choices 为空）。模型「{model_name}」可能不可用或不支持当前参数，"
+            f"请到 LLM 配置页更换模型名（如 Qwen/Qwen3-235B-A22B-Instruct-2507）。"
+        )
+
     content = resp.choices[0].message.content or ""
     try:
         data = json.loads(content)
     except json.JSONDecodeError as e:
-        raise LlmError(f"LLM 返回非法 JSON：{e}") from e
+        raise LlmError(f"LLM 返回非法 JSON：{e}；原始内容前 200 字：{content[:200]}") from e
 
     # 基础字段校验
     if not isinstance(data, dict) or "sections" not in data or "title" not in data:
