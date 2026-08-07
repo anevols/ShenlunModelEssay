@@ -76,12 +76,10 @@ onMounted(loadConfig)
 </script>
 
 <template>
-  <div class="admin-main">
-    <div class="toolbar">
-      <h2>LLM 配置</h2>
-    </div>
+  <article class="content">
+    <h1>LLM 配置</h1>
 
-    <div v-if="loading" class="table-loading">加载中...</div>
+    <div v-if="loading" class="loading">加载中...</div>
 
     <form v-else class="article-form" style="max-width: 640px" @submit.prevent="handleSave">
       <!-- API 地址 -->
@@ -129,5 +127,5 @@ onMounted(loadConfig)
         <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? '保存中...' : '保存配置' }}</button>
       </div>
     </form>
-  </div>
+  </article>
 </template>

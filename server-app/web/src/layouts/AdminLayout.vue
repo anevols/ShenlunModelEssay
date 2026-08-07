@@ -2,19 +2,29 @@
 /**
  * 管理后台布局
  *
- * - 顶部导航栏：侧边栏开关 + 品牌 + 管理菜单 + 用户名 + 退出（不使用账户图标）
+ * - 顶部导航栏：品牌 + 管理菜单 + 用户名 + 退出（不使用账户图标）
  * - 左侧侧边栏：沿用阅读站侧边栏样式，承载后台功能导航，桌面端可收起
- * - 主内容区：路由出口
+ * - 主内容区：content-wrap 布局，顶部 content-topbar（侧边栏开关 + 面包屑），下方 router-view
  * - 根元素加 app-admin 类，作用域内覆盖 CSS 变量
+ *
+ * 面包屑根据当前路由动态生成，类似阅读站文章页的面包屑导航。
  */
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getUsername, clearAuth } from '../shared/auth.js'
 
+const route = useRoute()
 const router = useRouter()
 const username = ref(getUsername() || '管理员')
 // 侧边栏收起状态：true=收起，false=展开（桌面默认展开，移动默认收起）
 const sidebarCollapsed = ref(window.innerWidth <= 900)
+
+// 面包屑：管理后台 / 当前功能名（根据路由 name 映射）
+const ROUTE_TITLES = {
+  dashboard: '文章管理',
+  'llm-config': 'LLM 配置',
+}
+const currentTitle = computed(() => ROUTE_TITLES[route.name] || '管理后台')
 
 function refreshUser() {
   username.value = getUsername() || '管理员'
@@ -39,10 +49,6 @@ onMounted(() => {
   <div class="app-admin">
     <header class="navbar admin-navbar">
       <div class="navbar-inner">
-        <button class="sidebar-toggle" aria-label="切换目录" @click="toggleSidebar">
-          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
-        </button>
-
         <router-link to="/admin/dashboard" class="brand">
           <span class="brand-logo">◆</span>
           <span class="brand-name">申论 · 管理后台</span>
@@ -64,8 +70,8 @@ onMounted(() => {
       <aside class="sidebar admin-sidebar" :class="{ collapsed: sidebarCollapsed }" aria-label="后台导航">
         <nav class="sidebar-nav">
           <div class="sidebar-group">
-            <div class="sidebar-group-title">
-              <span class="sidebar-arrow">▾</span>内容管理
+            <div class="sidebar-group-title" :class="{ collapsed: false }">
+              <svg class="sidebar-arrow" viewBox="0 0 24 24" width="10" height="10"><path fill="currentColor" d="M7 10l5 5 5-5z"></path></svg>内容管理
             </div>
             <div class="sidebar-group-items">
               <router-link to="/admin/dashboard" class="sidebar-item">文章管理</router-link>
@@ -73,7 +79,7 @@ onMounted(() => {
           </div>
           <div class="sidebar-group">
             <div class="sidebar-group-title">
-              <span class="sidebar-arrow">▾</span>系统配置
+              <svg class="sidebar-arrow" viewBox="0 0 24 24" width="10" height="10"><path fill="currentColor" d="M7 10l5 5 5-5z"></path></svg>系统配置
             </div>
             <div class="sidebar-group-items">
               <router-link to="/admin/llm-config" class="sidebar-item">LLM 配置</router-link>
@@ -83,7 +89,24 @@ onMounted(() => {
       </aside>
 
       <main class="main" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
-        <router-view />
+        <div class="content-wrap">
+          <div class="content-area">
+            <!-- 侧边栏开关 + 面包屑 -->
+            <div class="content-topbar">
+              <button class="sidebar-toggle" :aria-label="sidebarCollapsed ? '展开目录' : '收起目录'" @click="toggleSidebar">
+                <svg v-if="sidebarCollapsed" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+                <svg v-else viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 6h13v2H3zm0 5h13v2H3zm0 5h13v2H3zM19 4l4 8-4 8z"></path></svg>
+              </button>
+              <div class="breadcrumb">
+                <router-link to="/admin/dashboard">管理后台</router-link>
+                <span class="breadcrumb-sep">/</span>
+                <span>{{ currentTitle }}</span>
+              </div>
+            </div>
+
+            <router-view />
+          </div>
+        </div>
       </main>
     </div>
   </div>

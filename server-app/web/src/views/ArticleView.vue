@@ -16,8 +16,10 @@ import { api } from '../shared/auth.js'
 const route = useRoute()
 const router = useRouter()
 
-// 文章列表（由 App.vue provide）
+// 文章列表（由 ReaderLayout provide）
 const articles = inject('articles')
+// 侧边栏开关状态（由 ReaderLayout provide，开关按钮放在面包屑旁）
+const sidebar = inject('sidebar')
 
 const props = defineProps({
   slug: { type: String, default: '' },
@@ -173,6 +175,23 @@ onUnmounted(() => {
 <template>
   <div class="content-wrap">
     <div class="content-area">
+      <!-- 侧边栏开关 + 面包屑（始终显示） -->
+      <div class="content-topbar">
+        <button class="sidebar-toggle" :aria-label="sidebar.collapsed.value ? '展开目录' : '收起目录'" @click="sidebar.toggle">
+          <svg v-if="sidebar.collapsed.value" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+          <svg v-else viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 6h13v2H3zm0 5h13v2H3zm0 5h13v2H3zM19 4l4 8-4 8z"></path></svg>
+        </button>
+        <div class="breadcrumb">
+          <router-link to="/">首页</router-link>
+          <template v-if="article">
+            <span class="breadcrumb-sep">/</span>
+            <span>{{ article.category }}</span>
+            <span class="breadcrumb-sep">/</span>
+            <span>{{ article.title }}</span>
+          </template>
+        </div>
+      </div>
+
       <!-- 加载中 -->
       <div v-if="loading && !article" class="loading">正在加载文章…</div>
       <!-- 加载失败 -->
@@ -181,14 +200,6 @@ onUnmounted(() => {
       <div v-else-if="!article" class="loading">还没有任何文章。</div>
       <!-- 文章正文 -->
       <template v-else>
-        <div class="breadcrumb">
-          <router-link to="/">首页</router-link>
-          <span class="breadcrumb-sep">/</span>
-          <span>{{ article.category }}</span>
-          <span class="breadcrumb-sep">/</span>
-          <span>{{ article.title }}</span>
-        </div>
-
         <article class="content">
           <h1>{{ article.title }}</h1>
           <div v-if="article.date || article.author" class="article-meta">

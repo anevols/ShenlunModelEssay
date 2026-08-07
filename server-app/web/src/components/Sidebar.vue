@@ -76,7 +76,7 @@ function onItemClick() {
             @keydown.enter.prevent="toggleGroup(g.name)"
             @keydown.space.prevent="toggleGroup(g.name)"
           >
-            <span class="sidebar-arrow">▾</span>{{ g.name }}
+            <svg class="sidebar-arrow" viewBox="0 0 24 24" width="10" height="10"><path fill="currentColor" d="M7 10l5 5 5-5z"></path></svg>{{ g.name }}
           </div>
           <div class="sidebar-group-items" :class="{ collapsed: collapsedGroups[g.name] }">
             <router-link

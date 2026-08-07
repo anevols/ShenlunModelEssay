@@ -4,19 +4,12 @@
  *
  * - 文章列表表格（搜索、新建、编辑、删除）
  * - 编辑器弹窗（新建/编辑）
- * - 顶部栏由 AdminLayout 提供，本视图只渲染主体内容
+ * - 复用阅读站 .content 布局样式，顶部栏/面包屑由 AdminLayout 提供
  */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { api, getUsername, clearAuth, getToken } from '../shared/auth.js'
+import { api } from '../shared/auth.js'
 import ArticleEditor from '../admin/components/ArticleEditor.vue'
 
-const router = useRouter()
-
-// 登录态兜底：守卫已拦截，这里仅做安全保险
-if (!getToken()) router.push('/login')
-
-const username = ref(getUsername() || '管理员')
 const allArticles = ref([])
 const searchQuery = ref('')
 const loadingList = ref(false)
@@ -75,23 +68,17 @@ async function deleteArticle(slug) {
   }
 }
 
-function logout() {
-  clearAuth()
-  router.push('/login')
-}
-
 onMounted(loadArticles)
 </script>
 
 <template>
-  <div class="admin-main">
+  <article class="content">
+    <h1>文章列表</h1>
+
     <!-- 工具栏 -->
     <div class="toolbar">
-      <h2>文章列表</h2>
-      <div class="toolbar-actions">
-        <input v-model="searchQuery" type="text" placeholder="搜索标题..." class="input-search">
-        <button class="btn-primary" @click="openNew">+ 新建文章</button>
-      </div>
+      <input v-model="searchQuery" type="text" placeholder="搜索标题..." class="input-search">
+      <button class="btn-primary" @click="openNew">+ 新建文章</button>
     </div>
 
     <!-- 文章列表表格 -->
@@ -132,5 +119,5 @@ onMounted(loadArticles)
 
     <!-- 文章编辑弹窗 -->
     <ArticleEditor :visible="editorVisible" :slug="editingSlug" @close="closeEditor" @saved="onSaved" />
-  </div>
+  </article>
 </template>

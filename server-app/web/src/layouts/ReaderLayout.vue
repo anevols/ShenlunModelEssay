@@ -7,11 +7,10 @@
  * 职责：
  * - 启动时从 API 加载文章列表 meta（不含正文），provide 给子组件
  * - 搜索框过滤侧边栏
- * - 移动端侧边栏开关
+ * - 侧边栏开关状态 provide 给子组件（开关按钮放在子视图面包屑旁）
  * - 导航栏右侧入口（根据登录状态/是否管理员区分显示）：
  *   - 未登录 → 「登录」
- *   - 普通用户 → 用户名 + 退出
- *   - 管理员 → 用户名 + 「管理后台」+ 退出
+ *   - 已登录 → 功能菜单（管理员含「管理后台」）+ 用户名 + 退出
  */
 import { ref, provide, onMounted } from 'vue'
 import { api, getToken, getUsername, getIsAdmin, clearAuth } from '../shared/auth.js'
@@ -31,6 +30,11 @@ const currentUsername = ref('')
 
 // 文章列表 provide 给 ArticleView（用于上下篇导航）
 provide('articles', articles)
+// 侧边栏状态 provide 给子视图（开关按钮放在面包屑旁）
+provide('sidebar', {
+  collapsed: sidebarCollapsed,
+  toggle: () => { sidebarCollapsed.value = !sidebarCollapsed.value },
+})
 
 async function loadArticles() {
   loading.value = true
@@ -85,10 +89,6 @@ onMounted(() => {
 <template>
   <header class="navbar">
     <div class="navbar-inner">
-      <button class="sidebar-toggle" aria-label="切换目录" @click="toggleSidebar">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
-      </button>
-
       <router-link to="/" class="brand">
         <span class="brand-logo">◆</span>
         <span class="brand-name">申论</span>
@@ -101,16 +101,18 @@ onMounted(() => {
         <input id="search-input" v-model="searchQuery" type="text" placeholder="搜索文章…" aria-label="搜索文章">
       </div>
 
-      <nav class="navbar-actions"></nav>
+      <!-- 功能菜单：登录后按角色显示对应入口（便于后续扩展新功能） -->
+      <nav class="navbar-actions">
+        <template v-if="isAdmin !== null">
+          <!-- 管理员：管理后台入口 -->
+          <router-link v-if="isAdmin" to="/admin/dashboard" class="nav-link">管理后台</router-link>
+          <!-- 后续可在此扩展普通用户/管理员的新功能入口 -->
+        </template>
+      </nav>
 
-      <!-- 右侧固定区：根据登录状态显示 -->
-      <!-- 未登录 → 登录入口 -->
+      <!-- 右侧固定区：登录/用户信息 -->
       <router-link v-if="isAdmin === null" to="/login" class="nav-link nav-link-fixed">登录</router-link>
-      <!-- 管理员 → 管理后台入口（普通用户不显示） -->
-      <router-link v-else-if="isAdmin" to="/admin/dashboard" class="nav-link nav-link-fixed">管理后台</router-link>
-
-      <!-- 已登录显示用户名 + 退出 -->
-      <template v-if="isAdmin !== null">
+      <template v-else>
         <span class="nav-link nav-link-user">{{ currentUsername }}</span>
         <button class="nav-link nav-link-fixed nav-logout" @click="logout">退出</button>
       </template>

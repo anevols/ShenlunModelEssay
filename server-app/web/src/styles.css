@@ -96,7 +96,7 @@ a:hover { color: var(--accent-hover); }
 .sidebar-group-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); padding: 6px 12px 8px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px; }
 .sidebar-group-title:hover { color: var(--text-muted); }
 .sidebar-group-title:focus { outline: none; color: var(--accent); }
-.sidebar-arrow { display: inline-block; font-size: 10px; transition: transform 0.18s; }
+.sidebar-arrow { display: inline-block; transition: transform 0.18s; flex-shrink: 0; }
 .sidebar-group-title.collapsed .sidebar-arrow { transform: rotate(-90deg); }
 .sidebar-group-items.collapsed { display: none; }
 .sidebar-item { display: block; padding: 7px 12px; border-radius: 6px; color: var(--text-muted); font-size: 13.5px; line-height: 1.5; transition: background 0.12s, color 0.12s; cursor: pointer; }
@@ -109,6 +109,10 @@ a:hover { color: var(--accent-hover); }
 .main.sidebar-collapsed { margin-left: 0; }
 .content-wrap { display: flex; gap: 40px; max-width: 1440px; margin: 0 auto; padding: 40px 48px 80px; align-items: flex-start; }
 .content-area { flex: 1; min-width: 0; max-width: var(--content-max); }
+/* 内容顶部栏：侧边栏开关 + 面包屑同行 */
+.content-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.content-topbar .sidebar-toggle { padding: 4px; }
+.content-topbar .breadcrumb { margin-bottom: 0; }
 .breadcrumb { font-size: 12.5px; color: var(--text-light); margin-bottom: 16px; }
 .breadcrumb a { color: var(--text-muted); cursor: pointer; transition: color 0.12s; }
 .breadcrumb a:hover { color: var(--accent); }
