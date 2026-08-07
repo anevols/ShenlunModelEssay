@@ -8,14 +8,18 @@
  * - 启动时从 API 加载文章列表 meta（不含正文），provide 给子组件
  * - 搜索框过滤侧边栏
  * - 侧边栏开关状态 provide 给子组件（开关按钮放在子视图面包屑旁）
- * - 导航栏右侧入口（根据登录状态/是否管理员区分显示）：
+ * - 导航栏右侧：统一用 SVG 菜单图标收纳所有功能入口（下拉菜单）：
  *   - 未登录 → 「登录」
- *   - 已登录 → 功能菜单（管理员含「管理后台」）+ 用户名 + 退出
+ *   - 已登录 → 用户名 + 功能菜单（管理员含「管理后台」）+ 退出
+ *   （后续新增功能直接加到下拉菜单即可，保持导航栏整洁）
  */
-import { ref, provide, onMounted } from 'vue'
+import { ref, provide, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { api, getToken, getUsername, getIsAdmin, clearAuth } from '../shared/auth.js'
 import { categoryOrder } from '../shared/constants.js'
 import Sidebar from '../components/Sidebar.vue'
+
+const router = useRouter()
 
 const articles = ref([])
 const loading = ref(true)
@@ -27,6 +31,9 @@ const sidebarCollapsed = ref(window.innerWidth <= 900)
 // 登录状态：null=未登录，false=普通用户，true=管理员
 const isAdmin = ref(null)
 const currentUsername = ref('')
+// 用户菜单下拉开关
+const userMenuOpen = ref(false)
+const userMenuRef = ref(null)
 
 // 文章列表 provide 给 ArticleView（用于上下篇导航）
 provide('articles', articles)
@@ -54,10 +61,6 @@ async function loadArticles() {
   }
 }
 
-function toggleSidebar() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-}
-
 function closeSidebar() {
   // 仅移动端点击文章/遮罩后收起侧边栏（桌面端保持当前状态）
   if (window.innerWidth <= 900) sidebarCollapsed.value = true
@@ -73,9 +76,29 @@ function refreshLoginState() {
   isAdmin.value = getIsAdmin()
 }
 
-function logout() {
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value
+}
+
+function closeUserMenu() {
+  userMenuOpen.value = false
+}
+
+function handleClickOutside(e) {
+  if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
+    closeUserMenu()
+  }
+}
+
+function handleLoginClick() {
+  closeUserMenu()
+  router.push('/login')
+}
+
+function handleLogout() {
   clearAuth()
   refreshLoginState()
+  closeUserMenu()
 }
 
 onMounted(() => {
@@ -83,6 +106,13 @@ onMounted(() => {
   refreshLoginState()
   // 监听 storage 变化（其他布局登录/登出后同步入口显示状态）
   window.addEventListener('storage', refreshLoginState)
+  // 点击外部关闭用户菜单
+  document.addEventListener('click', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', refreshLoginState)
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -101,21 +131,64 @@ onMounted(() => {
         <input id="search-input" v-model="searchQuery" type="text" placeholder="搜索文章…" aria-label="搜索文章">
       </div>
 
-      <!-- 功能菜单：登录后按角色显示对应入口（便于后续扩展新功能） -->
-      <nav class="navbar-actions">
-        <template v-if="isAdmin !== null">
-          <!-- 管理员：管理后台入口 -->
-          <router-link v-if="isAdmin" to="/admin/dashboard" class="nav-link">管理后台</router-link>
-          <!-- 后续可在此扩展普通用户/管理员的新功能入口 -->
-        </template>
-      </nav>
-
-      <!-- 右侧固定区：登录/用户信息 -->
-      <router-link v-if="isAdmin === null" to="/login" class="nav-link nav-link-fixed">登录</router-link>
-      <template v-else>
-        <span class="nav-link nav-link-user">{{ currentUsername }}</span>
-        <button class="nav-link nav-link-fixed nav-logout" @click="logout">退出</button>
-      </template>
+      <!-- 用户菜单（SVG 图标触发下拉，收纳登录态 / 功能入口 / 退出） -->
+      <div class="user-menu" :class="{ open: userMenuOpen }" ref="userMenuRef">
+        <button
+          class="user-menu-trigger nav-link nav-link-fixed"
+          type="button"
+          :aria-label="userMenuOpen ? '关闭菜单' : '打开菜单'"
+          :aria-expanded="userMenuOpen"
+          aria-haspopup="true"
+          @click.stop="toggleUserMenu"
+        >
+          <svg v-if="isAdmin === null" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M12 12c2.8 0 5-2.2 5-5s-2.2-5-5-5-5 2.2-5 5 2.2 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"></path>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 4.8c1.5 0 2.7 1.2 2.7 2.7S13.5 12.2 12 12.2 9.3 11 9.3 9.5 10.5 6.8 12 6.8zm0 14.4c-2.3 0-4.3-1.2-5.5-3 0-2 3.7-3.1 5.5-3.1s5.5 1.1 5.5 3.1c-1.2 1.8-3.2 3-5.5 3z"></path>
+          </svg>
+        </button>
+        <div v-if="userMenuOpen" class="user-menu-dropdown" role="menu">
+          <template v-if="isAdmin === null">
+            <!-- 未登录 -->
+            <button type="button" class="user-menu-item" role="menuitem" @click="handleLoginClick">
+              <svg class="user-menu-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10 17v-2H6V5h12v4h2V5c0-1.1-.9-2-2-2H6C4.9 3 4 3.9 4 5v10c0 1.1.9 2 2 2h4zm10.5-3l-1.4-1.4L15 16.7V11h-2v5.7l-4.1-4.1-1.4 1.4L14 22l6.5-8z"></path></svg>
+              登录
+            </button>
+          </template>
+          <template v-else>
+            <!-- 已登录：用户信息头 -->
+            <div class="user-menu-header">
+              <div class="user-menu-avatar">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12c2.8 0 5-2.2 5-5s-2.2-5-5-5-5 2.2-5 5 2.2 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"></path></svg>
+              </div>
+              <div class="user-menu-info">
+                <div class="user-menu-name">{{ currentUsername || '用户' }}</div>
+                <div class="user-menu-role">{{ isAdmin ? '管理员' : '普通用户' }}</div>
+              </div>
+            </div>
+            <div class="user-menu-divider" role="separator"></div>
+            <!-- 功能菜单：按角色显示对应入口（便于后续扩展新功能） -->
+            <template v-if="isAdmin">
+              <router-link
+                to="/admin/dashboard"
+                class="user-menu-item"
+                role="menuitem"
+                @click="closeUserMenu"
+              >
+                <svg class="user-menu-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"></path></svg>
+                管理后台
+              </router-link>
+            </template>
+            <!-- 后续可在此扩展普通用户/管理员的新功能入口 -->
+            <div class="user-menu-divider" role="separator"></div>
+            <button type="button" class="user-menu-item user-menu-item-danger" role="menuitem" @click="handleLogout">
+              <svg class="user-menu-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10 17v-2H6V5h12v4h2V5c0-1.1-.9-2-2-2H6C4.9 3 4 3.9 4 5v10c0 1.1.9 2 2 2h4zm10.5-3l-1.4-1.4L15 16.7V11h-2v5.7l-4.1-4.1-1.4 1.4L14 22l6.5-8z"></path></svg>
+              退出登录
+            </button>
+          </template>
+        </div>
+      </div>
     </div>
   </header>
 
